@@ -56,7 +56,7 @@ sudo apt-get install docker-compose-plugin
 docker compose version
 ```
 
-Далее кронируем репозиторий:
+Далее клонируем репозиторий:
 
 ```bash
 git clone https://github.com/samloik/hyperauto-parser.git
@@ -69,6 +69,8 @@ cd hyperauto-parser
 ```bash
 docker compose build
 ```
+
+-------------------------------------------------------------
 
 Добавляем в текущую папку файл 'товары.xlsx'
 
