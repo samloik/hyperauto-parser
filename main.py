@@ -47,7 +47,7 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
             match = PRICE_RE.search(text)
             if match:
                 # price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]
-                price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')  # убираем пробелы и переносы
+                price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').split('\n')  # убираем пробелы и переносы
                 if len(price_str_list)>1:
                     price_str = price_str_list[1]
                 else:
@@ -67,7 +67,7 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
         match = PRICE_RE.search(page_text)
         if match:
             # price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]
-            price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')  # убираем пробелы и переносы
+            price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').split('\n')  # убираем пробелы и переносы
             if len(price_str_list)>1:
                 price_str = price_str_list[1]
             else:
@@ -188,7 +188,7 @@ async def main_async():
         for idx, row in df.iterrows():
             brand = str(row['Бренд']).strip()
             article = str(row['Артикул']).strip()
-            print(f"[{idx+1}/{len(df)}] {brand} {article}")
+            print(f"[{idx+1}/{len(df)}] {brand}/{article}")
 
             price, is_price = await get_price_async(page, brand, article)
 
