@@ -193,7 +193,8 @@ async def main_async():
             brand = str(row['Бренд']).strip()
             article = str(row['Артикул']).strip()
             start = perf_counter()
-            print(f"[{idx+1}/{len(df)}] {brand}/{article}", end=" ... ")
+            info = f"[{idx+1}/{len(df)}] {brand}/{article}"
+            print(f"{info:<50}", end=" | ")
 
             price, is_price = await get_price_async(page, brand, article)
 
@@ -202,9 +203,9 @@ async def main_async():
 
             if is_price is not False:
                 df.at[idx, 'Цена_Гиперавто_КнА'] = price
-                print(f"{price} ₽ [{elapsed:.1f} сек]")
+                print(f"{price:>12,.2f} ₽ | {elapsed:>7.1f} сек")
             else:
-                print(f"✗ не найдено [{elapsed:.1f} сек]")
+                print(f"{'✗ не найдено':>12} | {elapsed:>7.1f} сек")
 
             await page.wait_for_timeout(int(DELAY * 1000))
 
