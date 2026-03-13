@@ -68,10 +68,10 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
         if match:
             # price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]
             price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')  # убираем пробелы и переносы
-                if len(price_str_list)>1:
-                    price_str = price_str_list[1]
-                else:
-                    price_str = price_str_list[0]
+            if len(price_str_list)>1:
+                price_str = price_str_list[1]
+            else:
+                price_str = price_str_list[0]
             # print(f'[+] {match=}   |  [{price_str=}]')
             return (float(price_str), True)
 
