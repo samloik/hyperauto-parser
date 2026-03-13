@@ -20,7 +20,7 @@ PRICE_RE = re.compile(r'(\d[\d\s.,]*)\s*₽')
 
 async def get_price_async(page, brand: str, article: str) -> (float, bool):
     try:
-        query = f"{brand} {article}".strip()
+        query = f"{brand}/{article}".strip()
         search_url = f"https://hyperauto.ru/{CITY_SLUG}/search/{query.replace(' ', '%20')}/"
         
         await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT)
