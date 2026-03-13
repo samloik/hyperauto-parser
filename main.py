@@ -46,7 +46,12 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
             text = (await el.inner_text()).strip()
             match = PRICE_RE.search(text)
             if match:
-                price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]  # убираем пробелы и переносы
+                # price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]
+                price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')  # убираем пробелы и переносы
+                if len(price_str_list)>1:
+                    price_str = price_str_list[1]
+                else:
+                    price_str = price_str_list[0]
                 # print(f'[!] {match=}   |||  {price_str=}')
                 try:
                     price_val = float(price_str)
@@ -61,7 +66,12 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
         page_text = await page.inner_text('body')
         match = PRICE_RE.search(page_text)
         if match:
-            price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]
+            # price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]
+            price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')  # убираем пробелы и переносы
+                if len(price_str_list)>1:
+                    price_str = price_str_list[1]
+                else:
+                    price_str = price_str_list[0]
             # print(f'[+] {match=}   |  [{price_str=}]')
             return (float(price_str), True)
 
