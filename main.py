@@ -46,7 +46,7 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
             text = (await el.inner_text()).strip()
             match = PRICE_RE.search(text)
             if match:
-                price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '')
+                price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').replace('110\n', '')
                 # print(f'[!] {match=}   |||  {price_str=}')
                 try:
                     price_val = float(price_str)
@@ -61,7 +61,7 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
         page_text = await page.inner_text('body')
         match = PRICE_RE.search(page_text)
         if match:
-            price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '')
+            price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').replace('110\n', '')
             # print(f'[+] {match=}   |  [{price_str=}]')
             return (float(price_str), True)
 
