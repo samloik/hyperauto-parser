@@ -22,7 +22,13 @@ $env:PLAYWRIGHT_BROWSERS_PATH="0"
 pip install -r requirements.txt
 
 playwright install chromium
+```
 
+Далее копируем в эту папку наш заполненный файл товары.xlsx и запускаем main.py:
+
+```bash
 python main.py
 ```
+
+Найденные данные будут записаны в файл: цены_гиперавто_<дата>_<время>.xlsx
 
