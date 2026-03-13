@@ -1,17 +1,6 @@
-<<<<<<< HEAD
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-=======
 # Byte-compiled / optimized / DLL files
 __pycache__/
+pure_venv/
 *.py[codz]
 *$py.class
 
@@ -217,4 +206,4 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
->>>>>>> 0e7e625891d5f327ad84a6e2bca9015585820bf6
+
