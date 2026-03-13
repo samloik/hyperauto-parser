@@ -18,7 +18,7 @@ TIMEOUT = 25000           # ms
 # Регулярка для цены
 PRICE_RE = re.compile(r'(\d[\d\s.,]*)\s*₽')
 
-async def get_price_async(page, brand: str, article: str) -> (float | bool):
+async def get_price_async(page, brand: str, article: str) -> (float, bool):
     try:
         query = f"{brand} {article}".strip()
         search_url = f"https://hyperauto.ru/{CITY_SLUG}/search/{query.replace(' ', '%20')}/"
