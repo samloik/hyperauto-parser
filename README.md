@@ -32,3 +32,50 @@ python main.py
 
 Найденные данные будут записаны в файл: 'цены_гиперавто_<дата>_<время>.xlsx'
 
+-------------------------------------------------------------
+
+Для запуска на ubuntu через docker compose.
+
+Запускаем:
+
+```bash
+sudo apt-get update
+```
+
+Необходимо установить git:
+
+```bash
+sudo apt install git -y
+```
+
+Установить docker compose (https://docs.docker.com/compose/install/linux/#install-using-the-repository)
+
+```bash
+sudo apt-get install docker-compose-plugin
+
+docker compose version
+```
+
+Далее кронируем репозиторий:
+
+```bash
+git clone https://github.com/samloik/hyperauto-parser.git
+
+cd hyperauto-parser
+```
+
+Собираем образ:
+
+```bash
+docker compose build
+```
+
+Добавляем в текущую папку файл 'товары.xlsx'
+
+Запускаем контейнер:
+```bash
+docker compose up
+```
+
+Найденные данные будут записаны в файл: 'цены_гиперавто_<дата>_<время>.xlsx'
+
