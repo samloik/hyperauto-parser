@@ -1,0 +1,12 @@
+services:
+  hyperauto-parser:
+    build: .
+    container_name: hyperauto-parser
+    volumes:
+      - ./товары.xlsx:/app/товары.xlsx
+      - ./cookies.json:/app/cookies.json
+      - ./:/app/ 
+    environment:
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    stdin_open: true
+    tty: true

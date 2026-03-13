@@ -5,7 +5,6 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 from datetime import datetime
 import re
 import os
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 import time
 
 # ================= НАСТРОЙКИ =================
@@ -76,12 +75,15 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
 
 async def main_async():
 
+    # Определяем режим запуска (headless для Docker)
+    headless = os.environ.get('DOCKER_ENV', '0') == '1'
+
     print("Попытка запуска браузера Playwright...")
     try:
         async with async_playwright() as p:
             print("Playwright инициализирован")
-            browser = await p.chromium.launch(headless=False, slow_mo=500)
-            print("Браузер запущен (видимый режим)")
+            browser = await p.chromium.launch(headless=headless, slow_mo=500)
+            print("Браузер запущен")
             # ... дальше контекст и страница
     except Exception as e:
         print(f"Критическая ошибка Playwright: {type(e).__name__}: {str(e)}")
@@ -143,8 +145,11 @@ async def main_async():
         print(f"⚠ Файл {COOKIES_FILE} не найден — сессия не будет загружена")
         print("  После первого запуска (с ручным прохождением капчи) сессия сохранится автоматически")
 
+    # Определяем режим запуска (headless для Docker)
+    headless = os.environ.get('DOCKER_ENV', '0') == '1'
+
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=headless)
         context = await browser.new_context(
             storage_state=storage_state,  # dict или None
             viewport={'width': 1280, 'height': 900},

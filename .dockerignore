@@ -1,0 +1,9 @@
+pure_venv/
+__pycache__/
+*.pyc
+*.pyo
+.git
+.gitignore
+*.md
+*.log
+цены_гиперавто_*.xlsx
