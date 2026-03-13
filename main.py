@@ -194,7 +194,7 @@ async def main_async():
             article = str(row['Артикул']).strip()
             start = perf_counter()
             info = f"[{idx+1}/{len(df)}] {brand}/{article}"
-            print(f"{info:<50}", end=" | ")
+            print(f"{info:<150}", end=" | ")
 
             price, is_price = await get_price_async(page, brand, article)
 
