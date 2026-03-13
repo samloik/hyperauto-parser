@@ -37,7 +37,7 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
         try:
             await page.wait_for_selector('.product-card, .catalog-item, article, [data-product-id], .price', timeout=15000)
         except PlaywrightTimeoutError:
-            print(f"    Таймаут ожидания карточек для {brand} {article}")
+            print(f"    Таймаут ожидания карточек для {brand}/{article}")
             return (0.0, False)
 
         # Собираем все потенциальные блоки с ценой
