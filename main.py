@@ -6,6 +6,7 @@ from datetime import datetime
 import re
 import os
 import time
+from time import perf_counter
 
 # ================= НАСТРОЙКИ =================
 INPUT_FILE = 'товары.xlsx'
@@ -185,20 +186,30 @@ async def main_async():
             print(f"✓ Сессия сохранена в {COOKIES_FILE}")
             print("  Следующие запуски пройдут без капчи!\n")
 
+        total_start = perf_counter()
+        times = []
+
         for idx, row in df.iterrows():
             brand = str(row['Бренд']).strip()
             article = str(row['Артикул']).strip()
-            print(f"[{idx+1}/{len(df)}] {brand}/{article}")
+            start = perf_counter()
+            print(f"[{idx+1}/{len(df)}] {brand}/{article}", end=" ... ")
 
             price, is_price = await get_price_async(page, brand, article)
 
+            elapsed = perf_counter() - start
+            times.append(elapsed)
+
             if is_price is not False:
                 df.at[idx, 'Цена_Гиперавто_КнА'] = price
-                print(f"    → {price} ₽")
+                print(f"{price} ₽ [{elapsed:.1f} сек]")
             else:
-                print("    ✗ не найдено")
+                print(f"✗ не найдено [{elapsed:.1f} сек]")
 
             await page.wait_for_timeout(int(DELAY * 1000))
+
+        total_elapsed = perf_counter() - total_start
+        avg_time = sum(times) / len(times) if times else 0
 
         await browser.close()
 
@@ -206,6 +217,7 @@ async def main_async():
     out = f"{OUTPUT_FILE_PREFIX}_{timestamp}.xlsx"
     df.to_excel(out, index=False)
     print(f"\nСохранено → {out}")
+    print(f"\n⏱ Всего: {total_elapsed:.1f} сек | Среднее на позицию: {avg_time:.1f} сек")
 
 
 if __name__ == "__main__":
