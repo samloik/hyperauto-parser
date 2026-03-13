@@ -3,6 +3,7 @@ __pycache__/
 pure_venv/
 *.py[codz]
 *$py.class
+*.xlsx
 
 # C extensions
 *.so
