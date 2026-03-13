@@ -14,6 +14,7 @@ OUTPUT_FILE_PREFIX = 'цены_гиперавто'
 CITY_SLUG = 'komsomolsk'
 DELAY = 5.0               # сек между товарами
 TIMEOUT = 25000           # ms
+COOKIES_FILE = 'cookies.json'  # файл с сессией (cookies)
 
 # Регулярка для цены
 PRICE_RE = re.compile(r'(\d[\d\s.,]*)\s*₽')
@@ -74,16 +75,6 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
 
 
 async def main_async():
-    # print("=== Парсер Гиперавто (Playwright) — Комсомольск-на-Амуре ===")
-
-    # if not os.path.exists(INPUT_FILE):
-    #     print(f"Файл {INPUT_FILE} не найден!")
-    #     return
-
-    # df = pd.read_excel(INPUT_FILE)
-    # if 'Бренд' not in df.columns or 'Артикул' not in df.columns:
-    #     print("Нужны колонки 'Бренд' и 'Артикул'")
-    #     return
 
     print("Попытка запуска браузера Playwright...")
     try:
@@ -121,14 +112,41 @@ async def main_async():
         return
     
     print("Колонки в порядке → запускаем браузер...")
-    # ... остальной код без изменений
 
     df['Цена_Гиперавто_КнА'] = None
     df['Дата'] = datetime.now().strftime('%Y-%m-%d %H:%M')
 
+    # Проверяем наличие сохранённой сессии
+    storage_state = None
+    if os.path.exists(COOKIES_FILE):
+        try:
+            # Проверяем валидность файла
+            import json
+            with open(COOKIES_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            # Нормализуем cookies для Playwright
+            if 'cookies' in data:
+                for cookie in data['cookies']:
+                    # sameSite должен быть Strict|Lax|None или отсутствовать
+                    if 'sameSite' in cookie:
+                        if cookie['sameSite'] not in ('Strict', 'Lax', 'None'):
+                            del cookie['sameSite']
+                    # domain не должен начинаться с http
+                    if 'domain' in cookie:
+                        cookie['domain'] = cookie['domain'].lstrip('http').lstrip('s').lstrip(':').lstrip('/')
+                storage_state = data
+            print(f"✓ Загружаем сессию из {COOKIES_FILE}")
+        except Exception as e:
+            print(f"⚠ Ошибка загрузки {COOKIES_FILE}: {e}")
+            print("  Удалите файл и запустите заново для создания новой сессии")
+    else:
+        print(f"⚠ Файл {COOKIES_FILE} не найден — сессия не будет загружена")
+        print("  После первого запуска (с ручным прохождением капчи) сессия сохранится автоматически")
+
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)  # visible для отладки; потом True
+        browser = await p.chromium.launch(headless=False)
         context = await browser.new_context(
+            storage_state=storage_state,  # dict или None
             viewport={'width': 1280, 'height': 900},
             user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             locale='ru-RU',
@@ -136,10 +154,21 @@ async def main_async():
         )
         page = await context.new_page()
 
-        # Обход некоторых детектов
+        # Обход детектов
         await page.add_init_script("""
             Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
         """)
+
+        # Если сессии не было — даём время пройти капчу и сохраняем
+        if storage_state is None:
+            print("\n>>> Открой https://hyperauto.ru в этой вкладке и пройди капчу!")
+            print(">>> После этого нажми Enter в консоли...")
+            input()
+            await page.goto("https://hyperauto.ru/", wait_until="domcontentloaded")
+            await page.wait_for_timeout(3000)
+            await context.storage_state(path=COOKIES_FILE)
+            print(f"✓ Сессия сохранена в {COOKIES_FILE}")
+            print("  Следующие запуски пройдут без капчи!\n")
 
         for idx, row in df.iterrows():
             brand = str(row['Бренд']).strip()
