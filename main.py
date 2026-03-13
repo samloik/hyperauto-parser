@@ -18,7 +18,7 @@ TIMEOUT = 25000           # ms
 # Регулярка для цены
 PRICE_RE = re.compile(r'(\d[\d\s.,]*)\s*₽')
 
-async def get_price_async(page, brand: str, article: str) -> float | None:
+async def get_price_async(page, brand: str, article: str) -> (float | bool):
     try:
         query = f"{brand} {article}".strip()
         search_url = f"https://hyperauto.ru/{CITY_SLUG}/search/{query.replace(' ', '%20')}/"
@@ -37,7 +37,7 @@ async def get_price_async(page, brand: str, article: str) -> float | None:
             await page.wait_for_selector('.product-card, .catalog-item, article, [data-product-id], .price', timeout=15000)
         except PlaywrightTimeoutError:
             print(f"    Таймаут ожидания карточек для {brand} {article}")
-            return None
+            return (0.0, False)
 
         # Собираем все потенциальные блоки с ценой
         price_elements = await page.query_selector_all('.price, .current-price, .product-price, [class*="price"], span.price, div.price-amount')
@@ -53,7 +53,7 @@ async def get_price_async(page, brand: str, article: str) -> float | None:
                     # Дополнительная проверка — артикул должен быть где-то рядом
                     parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\']").innerText')
                     if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                        return price_val
+                        return (price_val, True)
                 except ValueError:
                     continue
 
@@ -63,14 +63,14 @@ async def get_price_async(page, brand: str, article: str) -> float | None:
         if match:
             price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '')
             # print(f'[+] {match=}   |  [{price_str=}]')
-            return float(price_str)
+            return (float(price_str), True)
 
-        return None
+        return (0.0, False)
 
     except Exception as e:
         print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
         # print(f'[?] {match=}   |||  {price_str=}')
-        return None
+        return (0.0, False)
 
 
 async def main_async():
@@ -146,9 +146,9 @@ async def main_async():
             article = str(row['Артикул']).strip()
             print(f"[{idx+1}/{len(df)}] {brand} {article}")
 
-            price = await get_price_async(page, brand, article)
+            price, is_price = await get_price_async(page, brand, article)
 
-            if price is not None:
+            if is_price is not False:
                 df.at[idx, 'Цена_Гиперавто_КнА'] = price
                 print(f"    → {price} ₽")
             else:
