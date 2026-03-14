@@ -3,7 +3,6 @@ import asyncio
 import pandas as pd
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 from datetime import datetime
-import re
 import os
 import time
 from time import perf_counter
@@ -65,16 +64,17 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
 
         # Запасной вариант — ищем цену по всей странице
         page_text = await page.inner_text('body')
-        match = PRICE_RE.search(page_text)
-        if match:
-            # price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]
-            price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').split('\n')  # убираем пробелы и переносы
-            if len(price_str_list)>1:
-                price_str = price_str_list[1]
-            else:
-                price_str = price_str_list[0]
-            # print(f'[+] {match=}   |  [{price_str=}]')
+        # Очищаем текст и ищем цену
+        price_str = page_text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
+        price_str_list = price_str.split('\n')
+        if len(price_str_list) > 1:
+            price_str = price_str_list[1]
+        else:
+            price_str = price_str_list[0]
+        try:
             return (float(price_str), True)
+        except ValueError:
+            pass
 
         return (0.0, False)
 
