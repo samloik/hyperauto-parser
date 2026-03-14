@@ -39,27 +39,32 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
 
         # Собираем цены с точным селектором (приоритет) — только актуальная цена
         price_elements = await page.query_selector_all('.product-price-new__price_main')
-        
+
         # Если не найдено — пробуем запасные селекторы
         if not price_elements:
             price_elements = await page.query_selector_all('.price, .current-price, .product-price, [class*="price"], span.price, div.price-amount')
 
         for el in price_elements:
             text = (await el.inner_text()).strip()
+            print(f"  [DEBUG] текст цены: {repr(text)}")
             # Очищаем текст от лишних символов
             price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
+            print(f"  [DEBUG] после очистки: {repr(price_str)}")
             price_str_list = price_str.split('\n')
+            print(f"  [DEBUG] split результат: {price_str_list}")
             if len(price_str_list) > 1:
                 price_str = price_str_list[1]
             else:
                 price_str = price_str_list[0]
+            print(f"  [DEBUG] итоговая price_str: {repr(price_str)}")
             try:
                 price_val = float(price_str)
                 # Дополнительная проверка — артикул должен быть где-то рядом
                 parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\']").innerText')
                 if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
                     return (price_val, True)
-            except ValueError:
+            except ValueError as e:
+                print(f"  [DEBUG] не удалось преобразовать в float: {e}")
                 continue
 
         # Запасной вариант — ищем цену по всей странице
