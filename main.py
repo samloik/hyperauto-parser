@@ -40,20 +40,22 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
             print(f"    Таймаут ожидания карточек для {brand}/{article}")
             return (0.0, False)
 
-        # Собираем все потенциальные блоки с ценой
-        price_elements = await page.query_selector_all('.price, .current-price, .product-price, [class*="price"], span.price, div.price-amount')
+        # Собираем цены с точным селектором (приоритет)
+        price_elements = await page.query_selector_all('.product-price-new__price')
         
+        # Если не найдено — пробуем запасные селекторы
+        if not price_elements:
+            price_elements = await page.query_selector_all('.price, .current-price, .product-price, [class*="price"], span.price, div.price-amount')
+
         for el in price_elements:
             text = (await el.inner_text()).strip()
             match = PRICE_RE.search(text)
             if match:
-                # price_str = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').split('\n')[1]
-                price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').split('\n')  # убираем пробелы и переносы
-                if len(price_str_list)>1:
+                price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').split('\n')
+                if len(price_str_list) > 1:
                     price_str = price_str_list[1]
                 else:
                     price_str = price_str_list[0]
-                # print(f'[!] {match=}   |||  {price_str=}')
                 try:
                     price_val = float(price_str)
                     # Дополнительная проверка — артикул должен быть где-то рядом
