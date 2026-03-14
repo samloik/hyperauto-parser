@@ -43,8 +43,10 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str):
         if not price_elements:
             price_elements = await page.query_selector_all('.price, .current-price, .product-price, [class*="price"], span.price, div.price-amount')
 
+        last_text = ""
         for el in price_elements:
             text = (await el.inner_text()).strip()
+            last_text = text.strip()
             # Очищаем текст от лишних символов
             price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
             price_str_list = price_str.split('\n')
@@ -70,6 +72,7 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str):
             price_green_elements = await page.query_selector_all('.price.price_big.price_green')
             for el in price_green_elements:
                 text = (await el.inner_text()).strip()
+                last_text = text.strip()
                 price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
                 price_str_list = price_str.split('\n')
                 if len(price_str_list) > 1:
@@ -98,7 +101,8 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str):
         except ValueError:
             pass
 
-        return (0.0, False, "")
+        # Возвращаем текст последнего просмотренного элемента
+        return (0.0, False, last_text if last_text else "элементы цены не найдены")
 
     except Exception as e:
         print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
@@ -225,10 +229,11 @@ async def main_async():
 
             if is_price is not False:
                 df.at[idx, 'Цена_Гиперавто_КнА'] = price
-                price_display = price_text[:25] if len(price_text) > 25 else price_text
-                print(f"{price:>15,.2f} ₽ | '{price_display}' | {elapsed:>7.1f} сек")
+                price_display = price_text[:45] if len(price_text) > 45 else price_text
+                print(f"{price:>30,.2f} ₽ | '{price_display}' | {elapsed:>7.1f} сек")
             else:
-                print(f"{'✗ не найдено':>12} | {elapsed:>7.1f} сек")
+                price_display = price_text[:45] if len(price_text) > 45 else price_text
+                print(f"{'✗ не найдено':>30} | '{price_display}' | {elapsed:>7.1f} сек")
 
             await page.wait_for_timeout(int(DELAY * 1000))
 
