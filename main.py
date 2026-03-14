@@ -16,63 +16,36 @@ COOKIES_FILE = 'cookies.json'  # файл с сессией (cookies)
 
 
 async def get_price_async(page, brand: str, article: str) -> (float, bool, str):
-    try:
-        query = f"{brand}/{article}".strip()
-        search_url = f"https://hyperauto.ru/{CITY_SLUG}/search/{query.replace(' ', '%20')}/"
-
-        await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT)
-        await page.wait_for_timeout(2000 + int(DELAY * 1000 * 0.3))  # рандомизация
-
-        # Пытаемся закрыть возможные попапы/куки
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
         try:
-            await page.locator('button:has-text("Принять"), button:has-text("OK"), [aria-label*="принять"], [data-dismiss*="cookie"]').click(timeout=5000)
-        except:
-            pass
+            query = f"{brand}/{article}".strip()
+            search_url = f"https://hyperauto.ru/{CITY_SLUG}/search/{query.replace(' ', '%20')}/"
 
-        # Ждём появления хотя бы одного товара или сообщения
-        try:
-            await page.wait_for_selector('.product-card, .catalog-item, article, [data-product-id], .price', timeout=15000)
-        except PlaywrightTimeoutError:
-            print(f"    Таймаут ожидания карточек для {brand}/{article}")
-            return (0.0, False, "")
+            await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT)
+            await page.wait_for_timeout(2000 + int(DELAY * 1000 * 0.3))  # рандомизация
 
-        # Собираем цены с точным селектором (приоритет) — только актуальная цена
-        price_elements = await page.query_selector_all('.product-price-new__price_main')
-
-        # Если не найдено — пробуем запасные селекторы
-        if not price_elements:
-            price_elements = await page.query_selector_all('.price, .current-price, .product-price, [class*="price"], span.price, div.price-amount')
-
-        last_text = ""
-        for el in price_elements:
-            text = (await el.inner_text()).strip()
-            last_text = text.strip()
-            # Очищаем текст от лишних символов
-            price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
-            price_str_list = price_str.split('\n')
-            if len(price_str_list) > 1:
-                price_str = price_str_list[1]
-            else:
-                price_str = price_str_list[0]
+            # Пытаемся закрыть возможные попапы/куки
             try:
-                price_val = float(price_str)
-                # Для точного селектора .product-price-new__price_main возвращаем цену сразу
-                # (этот класс уже гарантирует, что это актуальная цена товара)
-                if await el.evaluate('el => el.matches(".product-price-new__price_main")'):
-                    return (price_val, True, text.strip())
-                # Для запасных селекторов проверяем наличие артикула в родительском контейнере
-                parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
-                if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                    return (price_val, True, text.strip())
-            except ValueError:
-                continue
+                await page.locator('button:has-text("Принять"), button:has-text("OK"), [aria-label*="принять"], [data-dismiss*="cookie"]').click(timeout=5000)
+            except:
+                pass
 
-        # Если не нашли цену в .product-price-new__price_main, ищем в .price.price_big.price_green
-        if not price_elements:
+            # Ждём появления хотя бы одного товара или сообщения
+            try:
+                await page.wait_for_selector('.product-card, .catalog-item, article, [data-product-id], .price', timeout=15000)
+            except PlaywrightTimeoutError:
+                print(f"    Таймаут ожидания карточек для {brand}/{article}")
+                return (0.0, False, "таймаут ожидания карточек")
+
+            # Приоритет 1: ищем цену в .price.price_big.price_green
             price_green_elements = await page.query_selector_all('.price.price_big.price_green')
+            
             for el in price_green_elements:
                 text = (await el.inner_text()).strip()
-                last_text = text.strip()
+                # Очищаем текст от лишних символов
                 price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
                 price_str_list = price_str.split('\n')
                 if len(price_str_list) > 1:
@@ -87,27 +60,73 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str):
                 except ValueError:
                     continue
 
-        # Запасной вариант — ищем цену по всей странице
-        page_text = await page.inner_text('body')
-        # Очищаем текст и ищем цену
-        price_str = page_text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
-        price_str_list = price_str.split('\n')
-        if len(price_str_list) > 1:
-            price_str = price_str_list[1]
-        else:
-            price_str = price_str_list[0]
-        try:
-            return (float(price_str), True, price_str)
-        except ValueError:
-            pass
+            # Приоритет 2: ищем цену в .product-price-new__price_main
+            price_elements = await page.query_selector_all('.product-price-new__price_main')
+            
+            last_text = ""
+            for el in price_elements:
+                text = (await el.inner_text()).strip()
+                last_text = text.strip()
+                
+                # Проверяем на "Стоимость:" — нужно подождать и попробовать снова
+                if text.strip() == "Стоимость:":
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        print(f"  [Попытка {retry_count}/{max_retries}] Найдено 'Стоимость:', ждём и пробуем снова...")
+                        await page.wait_for_timeout(3000)
+                        break  # выходим из цикла for, переходим на следующую попытку while
+                    else:
+                        return (0.0, False, "Стоимость: (превышено число попыток)")
+                
+                # Очищаем текст от лишних символов
+                price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
+                price_str_list = price_str.split('\n')
+                if len(price_str_list) > 1:
+                    price_str = price_str_list[1]
+                else:
+                    price_str = price_str_list[0]
+                try:
+                    price_val = float(price_str)
+                    # Для точного селектора .product-price-new__price_main возвращаем цену сразу
+                    if await el.evaluate('el => el.matches(".product-price-new__price_main")'):
+                        return (price_val, True, text.strip())
+                    # Для запасных селекторов проверяем наличие артикула в родительском контейнере
+                    parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
+                    if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
+                        return (price_val, True, text.strip())
+                except ValueError:
+                    continue
+            
+            # Если вышли из цикла for из-за "Стоимость:", продолжаем while
+            if last_text == "Стоимость:":
+                continue
+                
+            # Запасной вариант — ищем цену по всей странице
+            page_text = await page.inner_text('body')
+            # Очищаем текст и ищем цену
+            price_str = page_text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
+            price_str_list = price_str.split('\n')
+            if len(price_str_list) > 1:
+                price_str = price_str_list[1]
+            else:
+                price_str = price_str_list[0]
+            try:
+                return (float(price_str), True, price_str)
+            except ValueError:
+                pass
 
-        # Возвращаем текст последнего просмотренного элемента
-        return (0.0, False, last_text if last_text else "элементы цены не найдены")
+            # Возвращаем текст последнего просмотренного элемента
+            return (0.0, False, last_text if last_text else "элементы цены не найдены")
 
-    except Exception as e:
-        print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
-        # print(f'[?] {match=}   |||  {price_str=}')
-        return (0.0, False, "")
+        except Exception as e:
+            print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
+            retry_count += 1
+            if retry_count < max_retries:
+                await page.wait_for_timeout(3000)
+                continue
+            return (0.0, False, f"ошибка: {str(e)[:50]}")
+    
+    return (0.0, False, "превышено число попыток")
 
 
 async def main_async():
@@ -229,11 +248,11 @@ async def main_async():
 
             if is_price is not False:
                 df.at[idx, 'Цена_Гиперавто_КнА'] = price
-                price_display = price_text[:45] if len(price_text) > 45 else price_text
-                print(f"{price:>30,.2f} ₽ | '{price_display}' | {elapsed:>7.1f} сек")
+                price_display = price_text[:40] if len(price_text) > 40 else price_text
+                print(f"{price:>30,.2f} | '{price_display:<40}' | {elapsed:>8.1f} сек")
             else:
-                price_display = price_text[:45] if len(price_text) > 45 else price_text
-                print(f"{'✗ не найдено':>30} | '{price_display}' | {elapsed:>7.1f} сек")
+                price_display = price_text[:40] if len(price_text) > 40 else price_text
+                print(f"{'✗ не найдено':>30} | '{price_display:<40}' | {elapsed:>8.1f} сек")
 
             await page.wait_for_timeout(int(DELAY * 1000))
 
