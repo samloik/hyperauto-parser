@@ -65,6 +65,25 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str):
             except ValueError:
                 continue
 
+        # Если не нашли цену в .product-price-new__price_main, ищем в .price.price_big.price_green
+        if not price_elements:
+            price_green_elements = await page.query_selector_all('.price.price_big.price_green')
+            for el in price_green_elements:
+                text = (await el.inner_text()).strip()
+                price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
+                price_str_list = price_str.split('\n')
+                if len(price_str_list) > 1:
+                    price_str = price_str_list[1]
+                else:
+                    price_str = price_str_list[0]
+                try:
+                    price_val = float(price_str)
+                    parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
+                    if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
+                        return (price_val, True, text.strip())
+                except ValueError:
+                    continue
+
         # Запасной вариант — ищем цену по всей странице
         page_text = await page.inner_text('body')
         # Очищаем текст и ищем цену
@@ -206,7 +225,8 @@ async def main_async():
 
             if is_price is not False:
                 df.at[idx, 'Цена_Гиперавто_КнА'] = price
-                print(f"{price:>12,.2f} ₽ | текст цены: {price_text} | {elapsed:>7.1f} сек")
+                price_display = price_text[:25] if len(price_text) > 25 else price_text
+                print(f"{price:>15,.2f} ₽ | '{price_display}' | {elapsed:>7.1f} сек")
             else:
                 print(f"{'✗ не найдено':>12} | {elapsed:>7.1f} сек")
 
