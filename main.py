@@ -40,8 +40,8 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
             print(f"    Таймаут ожидания карточек для {brand}/{article}")
             return (0.0, False)
 
-        # Собираем цены с точным селектором (приоритет)
-        price_elements = await page.query_selector_all('.product-price-new__price')
+        # Собираем цены с точным селектором (приоритет) — только актуальная цена
+        price_elements = await page.query_selector_all('.product-price-new__price_main')
         
         # Если не найдено — пробуем запасные селекторы
         if not price_elements:
