@@ -59,8 +59,12 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
             print(f"  [DEBUG] итоговая price_str: {repr(price_str)}")
             try:
                 price_val = float(price_str)
-                # Дополнительная проверка — артикул должен быть где-то рядом
-                parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\']").innerText')
+                # Для точного селектора .product-price-new__price_main возвращаем цену сразу
+                # (этот класс уже гарантирует, что это актуальная цена товара)
+                if await el.evaluate('el => el.matches(".product-price-new__price_main")'):
+                    return (price_val, True)
+                # Для запасных селекторов проверяем наличие артикула в родительском контейнере
+                parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
                 print(f"  [DEBUG] parent_text: {repr(parent_text[:200]) if parent_text else 'None'}")
                 print(f"  [DEBUG] article in parent: {article.upper() in parent_text.upper() if parent_text else False}")
                 if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
