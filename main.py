@@ -16,8 +16,6 @@ DELAY = 5.0               # сек между товарами
 TIMEOUT = 25000           # ms
 COOKIES_FILE = 'cookies.json'  # файл с сессией (cookies)
 
-# Регулярка для цены
-PRICE_RE = re.compile(r'(\d[\d\s.,]*)\s*₽')
 
 async def get_price_async(page, brand: str, article: str) -> (float, bool):
     try:
@@ -49,21 +47,21 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
 
         for el in price_elements:
             text = (await el.inner_text()).strip()
-            match = PRICE_RE.search(text)
-            if match:
-                price_str_list = match.group(1).replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').split('\n')
-                if len(price_str_list) > 1:
-                    price_str = price_str_list[1]
-                else:
-                    price_str = price_str_list[0]
-                try:
-                    price_val = float(price_str)
-                    # Дополнительная проверка — артикул должен быть где-то рядом
-                    parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\']").innerText')
-                    if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                        return (price_val, True)
-                except ValueError:
-                    continue
+            # Очищаем текст от лишних символов
+            price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
+            price_str_list = price_str.split('\n')
+            if len(price_str_list) > 1:
+                price_str = price_str_list[1]
+            else:
+                price_str = price_str_list[0]
+            try:
+                price_val = float(price_str)
+                # Дополнительная проверка — артикул должен быть где-то рядом
+                parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\']").innerText')
+                if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
+                    return (price_val, True)
+            except ValueError:
+                continue
 
         # Запасной вариант — ищем цену по всей странице
         page_text = await page.inner_text('body')
