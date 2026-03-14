@@ -61,8 +61,12 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool):
                 price_val = float(price_str)
                 # Дополнительная проверка — артикул должен быть где-то рядом
                 parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\']").innerText')
+                print(f"  [DEBUG] parent_text: {repr(parent_text[:200]) if parent_text else 'None'}")
+                print(f"  [DEBUG] article in parent: {article.upper() in parent_text.upper() if parent_text else False}")
                 if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
                     return (price_val, True)
+                else:
+                    print(f"  [DEBUG] не прошли проверку по артикулу/бренду")
             except ValueError as e:
                 print(f"  [DEBUG] не удалось преобразовать в float: {e}")
                 continue
