@@ -55,9 +55,10 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             
             # Если нашли список - берём элементы внутри него, иначе ищем все карточки на странице
             if product_list:
-                product_cards = await product_list.query_selector_all(':scope > .product-card, :scope > article, :scope > div[class*="card"], :scope > .catalog-item, :scope > div.product')
+                # Ищем .product-list__item как основные карточки
+                product_cards = await product_list.query_selector_all(':scope > .product-list__item')
             else:
-                product_cards = await page.query_selector_all('article, div[class*="card"], div[class*="item"], .product-card, .catalog-item, div.product')
+                product_cards = await page.query_selector_all('.product-list__item, article, div[class*="card"], div[class*="item"], .product-card, .catalog-item, div.product')
             
             total_items = len(product_cards)
 
@@ -79,7 +80,8 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             for card in product_cards:
                 # Извлекаем наименование товара из карточки
                 product_name = ""
-                name_element = await card.query_selector('a[title], a[href*="/product/"]')
+                # Ищем ссылку внутри .product-card__title или по атрибутам
+                name_element = await card.query_selector('.product-card__title a, a[title], a[href*="/product/"]')
                 if name_element:
                     product_name = await name_element.get_attribute('title') or await name_element.inner_text()
 
@@ -88,8 +90,12 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 price_text = ""
                 is_price = False
 
+                # Находим .product-card внутри .product-list__item (если это .product-list__item)
+                product_card = await card.query_selector('.product-card')
+                search_context = product_card if product_card else card
+
                 # Приоритет 1: ищем цену в .price.price_big.price_green внутри карточки
-                price_green_elements = await card.query_selector_all('.price.price_big.price_green')
+                price_green_elements = await search_context.query_selector_all('.price.price_big.price_green')
                 for el in price_green_elements:
                     text = (await el.inner_text()).strip()
                     price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
@@ -105,7 +111,7 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
 
                 # Приоритет 2: ищем цену в .product-price-new__price_main внутри карточки
                 if not is_price:
-                    price_elements = await card.query_selector_all('.product-price-new__price_main')
+                    price_elements = await search_context.query_selector_all('.product-price-new__price_main')
                     for el in price_elements:
                         text = (await el.inner_text()).strip()
                         if text.strip() == "Стоимость:":
