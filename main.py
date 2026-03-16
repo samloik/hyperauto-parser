@@ -45,12 +45,22 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
 
             # Приоритет 1: ищем цену в .price.price_big.price_green
             price_green_elements = await page.query_selector_all('.price.price_big.price_green')
-            
+
             # Извлекаем наименование товара
             product_name = ""
             name_element = await page.query_selector('a[title*="' + article + '"], a[title*="' + brand + '"]')
             if name_element:
                 product_name = await name_element.get_attribute('title') or await name_element.inner_text()
+
+            # Проверяем наличие бренда и артикула в наименовании
+            def check_brand_article_in_name(product_name: str, brand: str, article: str) -> bool:
+                if not product_name:
+                    return False
+                name_upper = product_name.upper()
+                brand_upper = brand.upper()
+                article_upper = article.upper()
+                # Проверяем наличие обоих: бренд И артикул в наименовании
+                return brand_upper in name_upper and article_upper in name_upper
 
             for el in price_green_elements:
                 text = (await el.inner_text()).strip()
@@ -65,7 +75,12 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
                     price_val = float(price_str)
                     parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
                     if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                        return (price_val, True, text.strip(), product_name, "")
+                        # Проверяем наличие бренда и артикула в наименовании
+                        if check_brand_article_in_name(product_name, brand, article):
+                            return (price_val, True, text.strip(), product_name, "")
+                        else:
+                            html_content = await page.content()
+                            return (0.0, False, "ошибка нет Бренда и Артикула в наименовании", "", html_content)
                 except ValueError:
                     continue
 
@@ -99,11 +114,21 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
                     price_val = float(price_str)
                     # Для точного селектора .product-price-new__price_main возвращаем цену сразу
                     if await el.evaluate('el => el.matches(".product-price-new__price_main")'):
-                        return (price_val, True, text.strip(), product_name, "")
+                        # Проверяем наличие бренда и артикула в наименовании
+                        if check_brand_article_in_name(product_name, brand, article):
+                            return (price_val, True, text.strip(), product_name, "")
+                        else:
+                            html_content = await page.content()
+                            return (0.0, False, "ошибка нет Бренда и Артикула в наименовании", "", html_content)
                     # Для запасных селекторов проверяем наличие артикула в родительском контейнере
                     parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
                     if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                        return (price_val, True, text.strip(), product_name, "")
+                        # Проверяем наличие бренда и артикула в наименовании
+                        if check_brand_article_in_name(product_name, brand, article):
+                            return (price_val, True, text.strip(), product_name, "")
+                        else:
+                            html_content = await page.content()
+                            return (0.0, False, "ошибка нет Бренда и Артикула в наименовании", "", html_content)
                 except ValueError:
                     continue
 
@@ -121,7 +146,12 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
             else:
                 price_str = price_str_list[0]
             try:
-                return (float(price_str), True, price_str, product_name, "")
+                # Проверяем наличие бренда и артикула в наименовании
+                if check_brand_article_in_name(product_name, brand, article):
+                    return (float(price_str), True, price_str, product_name, "")
+                else:
+                    html_content = await page.content()
+                    return (0.0, False, "ошибка нет Бренда и Артикула в наименовании", "", html_content)
             except ValueError:
                 pass
 
