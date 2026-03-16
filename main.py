@@ -118,24 +118,41 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
 
                 # Если не нашли "В наличии", ищем дату доставки
                 if not availability:
-                    # Ищем <div class="block-delivery__variant-main"> с <b class="mr-4">Доставка</b>
-                    delivery_blocks = await item.query_selector_all('.block-delivery__variant-main')
-                    for block in delivery_blocks:
-                        delivery_label = await block.query_selector('b.mr-4')
-                        if delivery_label:
-                            label_text = await delivery_label.inner_text()
-                            if 'Доставка' in label_text:
-                                # Ищем следующий div с <b> после текущего блока ( sibling )
-                                next_div = await block.evaluate_handle('el => el.nextElementSibling')
-                                if next_div:
-                                    next_b = await next_div.query_selector('b')
-                                    if next_b:
-                                        delivery_date = await next_b.inner_text()
-                                        if delivery_date:
-                                            availability = f"Доставка: {' '.join(delivery_date.split()).strip()}"
-                                            break
-                                if availability:
-                                    break
+                    # Ищем блок доставки и дату в следующем sibling элементе
+                    delivery_info = await item.evaluate('''
+                        (el) => {
+                            // Ищем .block-delivery__variant-main с "Доставка"
+                            const deliveryBlocks = el.querySelectorAll('.block-delivery__variant-main');
+                            for (const block of deliveryBlocks) {
+                                const label = block.querySelector('b.mr-4');
+                                if (label && label.textContent.includes('Доставка')) {
+                                    // Ищем следующий sibling с <b>
+                                    let sibling = block.nextElementSibling;
+                                    while (sibling) {
+                                        const next_b = sibling.querySelector('b');
+                                        if (next_b && next_b.textContent.trim()) {
+                                            return next_b.textContent.trim();
+                                        }
+                                        sibling = sibling.nextElementSibling;
+                                    }
+                                    // Если не нашли в sibling, ищем внутри parent
+                                    const parent = block.parentElement;
+                                    if (parent) {
+                                        const all_bs = parent.querySelectorAll('b');
+                                        for (const b of all_bs) {
+                                            const text = b.textContent.trim();
+                                            if (text && !text.includes('Доставка') && !text.includes('При заказе')) {
+                                                return text;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            return null;
+                        }
+                    ''')
+                    if delivery_info:
+                        availability = f"Доставка: {' '.join(delivery_info.split()).strip()}"
 
                 # Отладка
                 if item_idx < 3:
