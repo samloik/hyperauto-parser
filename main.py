@@ -275,6 +275,7 @@ async def main_async():
     df['Наличие'] = None
     df['Наименование'] = None
     df['Ссылка'] = None
+    df['№'] = None
 
     # Проверяем наличие сохранённой сессии
     storage_state = None
@@ -346,6 +347,16 @@ async def main_async():
         else:
             errors_path.mkdir(exist_ok=True)
 
+        # Определяем ширину для нумерации
+        total_len = len(str(len(df)))
+        
+        def format_prefix(idx, result_idx=None, total_results=1):
+            """Форматирует префикс с динамической шириной"""
+            if total_results > 1:
+                return f"[{idx+1:0{total_len}d}/{len(df)}][{result_idx+1}]"
+            else:
+                return f"[{idx+1:0{total_len}d}/{len(df)}] "
+
         for idx, row in df.iterrows():
             brand = str(row['Бренд']).strip()
             article = str(row['Артикул']).strip()
@@ -374,6 +385,7 @@ async def main_async():
                         df.at[idx, 'Наличие'] = availability if availability else ""
                         df.at[idx, 'Наименование'] = product_name
                         df.at[idx, 'Ссылка'] = f"https://hyperauto.ru/{CITY_SLUG}/search/{brand}/{article}/"
+                        df.at[idx, '№'] = format_prefix(idx, result_idx if len(results) > 1 else None, len(results))
 
                     name_display = f"{brand}/{article}"[:25]
                     price_display = f"{price:,.2f}"[:10]
@@ -381,10 +393,10 @@ async def main_async():
                     availability_display = availability[:20] if availability else ""
                     # Если несколько позиций, добавляем номер [idx/total][result_idx]
                     if len(results) > 1:
-                        prefix = f"[{idx+1:03d}/{len(df)}][{result_idx+1}]"
+                        prefix = format_prefix(idx, result_idx, len(results))
                         print(f"{prefix:<14} {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     else:
-                        prefix = f"[{idx+1:03d}/{len(df)}]"
+                        prefix = format_prefix(idx, None, 1)
                         print(f"{prefix:<14} {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                 else:
                     if result_idx == 0:
@@ -393,16 +405,17 @@ async def main_async():
                         df.at[idx, 'Наличие'] = availability if availability else ""
                         df.at[idx, 'Наименование'] = product_name if product_name else price_text
                         df.at[idx, 'Ссылка'] = f"https://hyperauto.ru/{CITY_SLUG}/search/{brand}/{article}/"
+                        df.at[idx, '№'] = format_prefix(idx, result_idx if len(results) > 1 else None, len(results))
 
                     name_display = f"{brand}/{article}"[:25]
                     product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
                     # Если несколько позиций, добавляем номер
                     if len(results) > 1:
-                        prefix = f"[{idx+1:03d}/{len(df)}][{result_idx+1}]"
+                        prefix = format_prefix(idx, result_idx, len(results))
                         print(f"{prefix:<14} {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     else:
-                        prefix = f"[{idx+1:03d}/{len(df)}]"
+                        prefix = format_prefix(idx, None, 1)
                         print(f"{prefix:<14} {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     has_errors = True
 
@@ -428,9 +441,6 @@ async def main_async():
         avg_time = sum(times) / len(times) if times else 0
 
         await browser.close()
-
-    # Добавляем нумерацию
-    df.insert(0, '№', range(1, len(df) + 1))
 
     # Переупорядочиваем колонки
     df = df[['№', 'Бренд', 'Артикул', 'Цена_Гиперавто_КнА', 'Дата и время', 'Выполнение запроса', 'Наличие', 'Наименование', 'Ссылка']]
