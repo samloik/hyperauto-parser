@@ -131,6 +131,25 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                         availability = link_text.strip()
                         break
 
+                # Если не нашли "В наличии", ищем доставку
+                if not availability:
+                    # Ищем <div class="block-delivery__variant-main"> с <b class="mr-4">Доставка</b>
+                    delivery_variants = await item.query_selector_all('.block-delivery__variant-main')
+                    for variant in delivery_variants:
+                        delivery_b = await variant.query_selector('b.mr-4')
+                        if delivery_b:
+                            b_text = await delivery_b.inner_text()
+                            if 'Доставка' in b_text:
+                                # Ищем div.mb-8 с <b> внутри того же variant
+                                mb8_div = await variant.query_selector('div.mb-8')
+                                if mb8_div:
+                                    next_b = await mb8_div.query_selector('b')
+                                    if next_b:
+                                        delivery_date = await next_b.inner_text()
+                                        if delivery_date:
+                                            availability = f"Доставка: {delivery_date.strip()}"
+                                            break
+
                 # Ищем цену в элементе
                 price_val = 0.0
                 price_text = ""
