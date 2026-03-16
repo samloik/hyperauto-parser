@@ -53,13 +53,16 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             # Находим контейнер со списком товаров
             product_list = await page.query_selector('.product-list.product-list_row')
             
-            # Если нашли список - берём элементы внутри него, иначе ищем все карточки на странице
+            # Отладка: проверяем что нашли
             if product_list:
                 # Ищем .product-list__item как основные карточки
                 product_cards = await product_list.query_selector_all(':scope > .product-list__item')
+                print(f"  [DEBUG] Найдено product_list, элементов: {len(product_cards)}")
             else:
+                print(f"  [DEBUG] product_list НЕ найден, ищем альтернативно...")
                 product_cards = await page.query_selector_all('.product-list__item, article, div[class*="card"], div[class*="item"], .product-card, .catalog-item, div.product')
-            
+                print(f"  [DEBUG] Альтернативно найдено элементов: {len(product_cards)}")
+
             total_items = len(product_cards)
 
             # Проверяем наличие бренда и артикула в наименовании
@@ -137,9 +140,11 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
 
             # Возвращаем все найденные позиции и количество совпавших
             if results:
+                print(f"  [DEBUG] results: {len(results)}, matched: {matched_count}")
                 return results, "", total_items, matched_count
             else:
                 # Если карточки не найдены
+                print(f"  [DEBUG] results пустой, total_items: {total_items}")
                 html_content = await page.content()
                 return [(0.0, False, "элементы не найдены", "", html_content)], "элементы не найдены", 0, 0
 
