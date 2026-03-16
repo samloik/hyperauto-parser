@@ -48,7 +48,7 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             except PlaywrightTimeoutError:
                 print(f"    Таймаут ожидания карточек для {brand}/{article}")
                 html_content = await page.content()
-                return [(0.0, False, "таймаут ожидания карточек", "", html_content)], "таймаут", 0, 0
+                return [(0.0, False, "таймаут ожидания карточек", "", html_content, "")], "таймаут", 0, 0
 
             # Находим контейнер со списком товаров
             product_list = await page.query_selector('.product-list.product-list_row')
@@ -153,10 +153,6 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                     ''')
                     if delivery_info:
                         availability = f"Доставка: {' '.join(delivery_info.split()).strip()}"
-
-                # Отладка
-                if item_idx < 3:
-                    print(f"  [DEBUG] Item {item_idx}: availability='{availability}', product_name='{product_name[:40]}'")
 
                 # Ищем цену в элементе
                 price_val = 0.0
@@ -369,32 +365,26 @@ async def main_async():
 
                     name_display = f"{brand}/{article}"[:30]
                     price_display = f"{price:,.2f}"[:10]
-                    price_text_display = price_text[:20] if len(price_text) > 20 else price_text
-                    product_name_display = product_name[:50] if len(product_name) > 50 else product_name
+                    product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
-                    # Отладка
-                    print(f"  [DEBUG] availability='{availability}'")
                     # Если несколько позиций, добавляем номер [idx/total][result_idx]
                     if len(results) > 1:
                         prefix = f"[{idx+1:03d}/{len(df)}][{result_idx+1}]"
-                        print(f"{prefix:<14} {name_display:<30} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
+                        print(f"{prefix:<14} {name_display:<30} | {price_display:>10} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
                     else:
                         prefix = f"[{idx+1:03d}/{len(df)}]"
-                        print(f"{prefix:<14} {name_display:<30} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
+                        print(f"{prefix:<14} {name_display:<30} | {price_display:>10} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
                 else:
                     name_display = f"{brand}/{article}"[:30]
-                    price_text_display = price_text[:20] if len(price_text) > 20 else price_text
-                    product_name_display = product_name[:50] if len(product_name) > 50 else product_name
+                    product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
-                    # Отладка
-                    print(f"  [DEBUG] availability='{availability}'")
                     # Если несколько позиций, добавляем номер
                     if len(results) > 1:
                         prefix = f"[{idx+1:03d}/{len(df)}][{result_idx+1}]"
-                        print(f"{prefix:<14} {name_display:<30} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
+                        print(f"{prefix:<14} {name_display:<30} | {'✗':>10} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
                     else:
                         prefix = f"[{idx+1:03d}/{len(df)}]"
-                        print(f"{prefix:<14} {name_display:<30} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
+                        print(f"{prefix:<14} {name_display:<30} | {'✗':>10} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
                     has_errors = True
 
             # Сохраняем HTML при ошибках (один файл на итерацию)
