@@ -121,7 +121,7 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 elif is_price and product_name:
                     # Цена найдена, но не совпадает - ошибка
                     html_content = await page.content()
-                    results.append((0.0, False, "ошибка нет Бренда и Артикула в наименовании", product_name, html_content))
+                    results.append((0.0, False, "нет Бренда и Артикула", product_name, html_content))
 
             if results:
                 return results, "", total_items, matched_count
