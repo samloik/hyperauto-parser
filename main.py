@@ -78,7 +78,22 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 # Добавляем пробел перед артикулом для поиска
                 article_upper = ' ' + article.upper()
                 # Проверяем наличие обоих: бренд И артикул (с пробелом) в наименовании
-                return brand_upper in name_upper and article_upper in name_upper
+                has_brand = brand_upper in name_upper
+                has_article = article_upper in name_upper
+                
+                # Если артикул найден, проверяем что после него нет дополнительных букв/цифр
+                if has_article:
+                    article_pos = name_upper.find(article_upper)
+                    if article_pos >= 0:
+                        # Проверяем символ после артикула
+                        after_article_pos = article_pos + len(article_upper)
+                        if after_article_pos < len(name_upper):
+                            next_char = name_upper[after_article_pos]
+                            # После артикула допускаем только не-алфанумерические символы
+                            if next_char.isalnum():
+                                has_article = False
+                
+                return has_brand and has_article
 
             results = []
             matched_count = 0
