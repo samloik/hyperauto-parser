@@ -253,8 +253,6 @@ async def main_async():
         errors_path = Path(ERRORS_DIR)
         errors_path.mkdir(exist_ok=True)
 
-        error_counter = 0
-
         for idx, row in df.iterrows():
             brand = str(row['Бренд']).strip()
             article = str(row['Артикул']).strip()
@@ -281,10 +279,11 @@ async def main_async():
                 
                 # Сохраняем HTML при ошибках
                 if html_content:
-                    error_counter += 1
+                    # Номер позиции в общем списке
+                    position_num = idx + 1
                     # Очищаем название ошибки для имени файла
                     error_name = price_text.replace(':', '').replace('/', '_').replace('\\', '_').replace('<', '_').replace('>', '_').replace('"', '_').replace('|', '_').replace('?', '_').replace('*', '_')[:50]
-                    html_filename = f"{error_counter}-{brand}-{article}-{error_name}.html"
+                    html_filename = f"{position_num}-{brand}-{article}-{error_name}.html"
                     html_filepath = errors_path / html_filename
                     with open(html_filepath, 'w', encoding='utf-8') as f:
                         f.write(html_content)
