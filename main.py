@@ -270,7 +270,11 @@ async def main_async():
     print("Колонки в порядке → запускаем браузер...")
 
     df['Цена_Гиперавто_КнА'] = None
-    df['Дата'] = datetime.now().strftime('%Y-%m-%d %H:%M')
+    df['Дата и время'] = datetime.now().strftime('%Y-%m-%d %H:%M')
+    df['Выполнение запроса'] = None
+    df['Наличие'] = None
+    df['Наименование'] = None
+    df['Ссылка'] = None
 
     # Проверяем наличие сохранённой сессии
     storage_state = None
@@ -332,9 +336,15 @@ async def main_async():
         total_start = perf_counter()
         times = []
 
-        # Создаём папку для ошибок
+        # Создаём папку для ошибок и очищаем её
         errors_path = Path(ERRORS_DIR)
-        errors_path.mkdir(exist_ok=True)
+        if errors_path.exists():
+            # Удаляем все файлы в папке
+            for f in errors_path.iterdir():
+                if f.is_file():
+                    f.unlink()
+        else:
+            errors_path.mkdir(exist_ok=True)
 
         for idx, row in df.iterrows():
             brand = str(row['Бренд']).strip()
@@ -353,38 +363,47 @@ async def main_async():
                 count_info = ""
 
             # Обрабатываем результаты
-            first_price_set = False
             has_errors = False
 
             for result_idx, (price, is_price, price_text, product_name, html_content, availability) in enumerate(results):
                 if is_price is not False:
-                    if not first_price_set:
+                    if result_idx == 0:
                         # Первую цену записываем в DataFrame
                         df.at[idx, 'Цена_Гиперавто_КнА'] = price
-                        first_price_set = True
+                        df.at[idx, 'Выполнение запроса'] = f"{elapsed:.1f} сек"
+                        df.at[idx, 'Наличие'] = availability if availability else ""
+                        df.at[idx, 'Наименование'] = product_name
+                        df.at[idx, 'Ссылка'] = f"https://hyperauto.ru/{CITY_SLUG}/search/{brand}/{article}/"
 
-                    name_display = f"{brand}/{article}"[:30]
+                    name_display = f"{brand}/{article}"[:25]
                     price_display = f"{price:,.2f}"[:10]
                     product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
                     # Если несколько позиций, добавляем номер [idx/total][result_idx]
                     if len(results) > 1:
                         prefix = f"[{idx+1:03d}/{len(df)}][{result_idx+1}]"
-                        print(f"{prefix:<14} {name_display:<30} | {price_display:>10} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
+                        print(f"{prefix:<14} {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     else:
                         prefix = f"[{idx+1:03d}/{len(df)}]"
-                        print(f"{prefix:<14} {name_display:<30} | {price_display:>10} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
+                        print(f"{prefix:<14} {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                 else:
-                    name_display = f"{brand}/{article}"[:30]
+                    if result_idx == 0:
+                        # Записываем ошибку в DataFrame
+                        df.at[idx, 'Выполнение запроса'] = f"{elapsed:.1f} сек"
+                        df.at[idx, 'Наличие'] = availability if availability else ""
+                        df.at[idx, 'Наименование'] = product_name if product_name else price_text
+                        df.at[idx, 'Ссылка'] = f"https://hyperauto.ru/{CITY_SLUG}/search/{brand}/{article}/"
+
+                    name_display = f"{brand}/{article}"[:25]
                     product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
                     # Если несколько позиций, добавляем номер
                     if len(results) > 1:
                         prefix = f"[{idx+1:03d}/{len(df)}][{result_idx+1}]"
-                        print(f"{prefix:<14} {name_display:<30} | {'✗':>10} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
+                        print(f"{prefix:<14} {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     else:
                         prefix = f"[{idx+1:03d}/{len(df)}]"
-                        print(f"{prefix:<14} {name_display:<30} | {'✗':>10} | {elapsed:>10.1f} сек | {availability_display:<20} | {product_name_display}")
+                        print(f"{prefix:<14} {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     has_errors = True
 
             # Сохраняем HTML при ошибках (один файл на итерацию)
@@ -409,6 +428,12 @@ async def main_async():
         avg_time = sum(times) / len(times) if times else 0
 
         await browser.close()
+
+    # Добавляем нумерацию
+    df.insert(0, '№', range(1, len(df) + 1))
+
+    # Переупорядочиваем колонки
+    df = df[['№', 'Бренд', 'Артикул', 'Цена_Гиперавто_КнА', 'Дата и время', 'Выполнение запроса', 'Наличие', 'Наименование', 'Ссылка']]
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M')
     out = f"{OUTPUT_FILE_PREFIX}_{timestamp}.xlsx"
