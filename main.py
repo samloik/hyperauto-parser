@@ -123,12 +123,12 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                     if b_element:
                         b_text = await b_element.inner_text()
                         if 'В наличии' in b_text or 'на складе' in b_text.lower():
-                            availability = b_text.strip()
+                            availability = ' '.join(b_text.split()).strip()
                             break
                     # Также проверяем текст самой ссылки
                     link_text = await link.inner_text()
                     if 'В наличии' in link_text or 'на складе' in link_text.lower():
-                        availability = link_text.strip()
+                        availability = ' '.join(link_text.split()).strip()
                         break
 
                 # Если не нашли "В наличии", ищем доставку
@@ -147,7 +147,9 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                                     if next_b:
                                         delivery_date = await next_b.inner_text()
                                         if delivery_date:
-                                            availability = f"Доставка: {delivery_date.strip()}"
+                                            # Очищаем от спецсимволов и лишних пробелов
+                                            delivery_date_clean = ' '.join(delivery_date.split()).strip()
+                                            availability = f"Доставка: {delivery_date_clean}"
                                             break
 
                 # Ищем цену в элементе
@@ -388,7 +390,7 @@ async def main_async():
             # Сохраняем HTML при ошибках (один файл на итерацию)
             if has_errors and results:
                 # Берём HTML из первого результата с ошибкой
-                for price, is_price, price_text, product_name, html_content in results:
+                for price, is_price, price_text, product_name, html_content, availability in results:
                     if is_price is False and html_content:
                         # Номер позиции в общем списке
                         position_num = idx + 1
