@@ -57,8 +57,12 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             if product_list:
                 # Ищем .product-list__item как основные контейнеры
                 all_items = await product_list.query_selector_all(':scope > .product-list__item')
-                # Пропускаем первый элемент (реклама) и берём только товары
-                product_list_items = [item for item in all_items if not await item.query_selector('.product-list__item__search_related')]
+                # Пропускаем элементы с рекламой (класс product-list__item__search_related)
+                product_list_items = []
+                for item in all_items:
+                    item_class = await item.get_attribute('class') or ''
+                    if 'product-list__item__search_related' not in item_class:
+                        product_list_items.append(item)
                 print(f"  [DEBUG] Найдено product_list, all_items: {len(all_items)}, product_list_items (без рекламы): {len(product_list_items)}")
             else:
                 print(f"  [DEBUG] product_list НЕ найден, ищем альтернативно...")
@@ -103,10 +107,14 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             for item_idx, item in enumerate(product_list_items):
                 # Извлекаем наименование товара из карточки
                 product_name = ""
-                # Ищем ссылку с href содержащим /product/
-                name_element = await item.query_selector('a[href*="/product/"]')
-                if name_element:
-                    product_name = await name_element.get_attribute('title') or await name_element.inner_text()
+                # Ищем все ссылки и находим ту, что ведёт на товар
+                all_links = await item.query_selector_all('a')
+                for link in all_links:
+                    href = await link.get_attribute('href')
+                    if href and '/product/' in href:
+                        product_name = await link.get_attribute('title') or await link.inner_text()
+                        if product_name:
+                            break
 
                 if item_idx == 0:
                     print(f"  [DEBUG] Item: product_name='{product_name[:50] if product_name else 'EMPTY'}...'")
