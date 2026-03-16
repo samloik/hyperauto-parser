@@ -50,8 +50,15 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 html_content = await page.content()
                 return [(0.0, False, "таймаут ожидания карточек", "", html_content)], "таймаут", 0, 0
 
-            # Находим все карточки товаров на странице
-            product_cards = await page.query_selector_all('article, div[class*="card"], div[class*="item"], .product-card, .catalog-item')
+            # Находим контейнер со списком товаров
+            product_list = await page.query_selector('.product-list.product-list_row')
+            
+            # Если нашли список - берём элементы внутри него, иначе ищем все карточки на странице
+            if product_list:
+                product_cards = await product_list.query_selector_all(':scope > .product-card, :scope > article, :scope > div[class*="card"], :scope > .catalog-item, :scope > div.product')
+            else:
+                product_cards = await page.query_selector_all('article, div[class*="card"], div[class*="item"], .product-card, .catalog-item, div.product')
+            
             total_items = len(product_cards)
 
             # Проверяем наличие бренда и артикула в наименовании
@@ -118,17 +125,17 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 if check_brand_article_in_name(product_name, brand, article):
                     matched_count += 1
                     results.append((price_val, is_price, price_text, product_name, ""))
-                elif is_price and product_name:
-                    # Цена найдена, но не совпадает - ошибка
-                    html_content = await page.content()
-                    results.append((0.0, False, "нет Бренда и Артикула", product_name, html_content))
+                elif product_name:  # Если есть наименование, но нет совпадения
+                    # Добавляем в результаты как позицию без цены (ошибка)
+                    results.append((0.0, False, "нет Бренда и Артикула", product_name, ""))
 
+            # Возвращаем все найденные позиции и количество совпавших
             if results:
                 return results, "", total_items, matched_count
-
-            # Если карточки не найдены
-            html_content = await page.content()
-            return [(0.0, False, "элементы цены не найдены", "", html_content)], "элементы не найдены", 0, 0
+            else:
+                # Если карточки не найдены
+                html_content = await page.content()
+                return [(0.0, False, "элементы не найдены", "", html_content)], "элементы не найдены", 0, 0
 
         except Exception as e:
             print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
@@ -274,7 +281,7 @@ async def main_async():
 
             # Обрабатываем результаты
             first_price_set = False
-            saved_errors = []
+            has_errors = False
 
             for result_idx, (price, is_price, price_text, product_name, html_content) in enumerate(results):
                 if is_price is not False:
@@ -295,26 +302,29 @@ async def main_async():
                 else:
                     name_display = f"{brand}/{article}"[:40]
                     price_text_display = price_text[:20] if len(price_text) > 20 else price_text
+                    product_name_display = product_name[:50] if len(product_name) > 50 else product_name
+                    # Если несколько позиций, добавляем номер
                     if len(results) > 1:
-                        print(f"{count_info}[{result_idx+1}] {name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {price_text_display}")
+                        print(f"{count_info}[{result_idx+1}] {name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
                     else:
-                        print(f"{count_info} {name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {price_text_display}")
+                        print(f"{count_info} {name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
+                    has_errors = True
 
-                    # Сохраняем ошибки для последующего сохранения
-                    if html_content:
-                        saved_errors.append((price_text, html_content))
-
-            # Сохраняем HTML при ошибках
-            for err_idx, (err_text, html_content) in enumerate(saved_errors):
-                # Номер позиции в общем списке
-                position_num = idx + 1
-                # Очищаем название ошибки для имени файла
-                error_name = err_text.replace(':', '').replace('/', '_').replace('\\', '_').replace('<', '_').replace('>', '_').replace('"', '_').replace('|', '_').replace('?', '_').replace('*', '_')[:50]
-                html_filename = f"{position_num}-{brand}-{article}-{error_name}.html"
-                html_filepath = errors_path / html_filename
-                with open(html_filepath, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
-                print(f"  → Сохранено: {html_filename}")
+            # Сохраняем HTML при ошибках (один файл на итерацию)
+            if has_errors and results:
+                # Берём HTML из первого результата с ошибкой
+                for price, is_price, price_text, product_name, html_content in results:
+                    if is_price is False and html_content:
+                        # Номер позиции в общем списке
+                        position_num = idx + 1
+                        # Очищаем название ошибки для имени файла
+                        error_name = price_text.replace(':', '').replace('/', '_').replace('\\', '_').replace('<', '_').replace('>', '_').replace('"', '_').replace('|', '_').replace('?', '_').replace('*', '_')[:50]
+                        html_filename = f"{position_num}-{brand}-{article}-{error_name}.html"
+                        html_filepath = errors_path / html_filename
+                        with open(html_filepath, 'w', encoding='utf-8') as f:
+                            f.write(html_content)
+                        print(f"  → Сохранено: {html_filename}")
+                        break
 
             await page.wait_for_timeout(int(DELAY * 1000))
 
