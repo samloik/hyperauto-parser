@@ -63,11 +63,8 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                     item_class = await item.get_attribute('class') or ''
                     if 'product-list__item__search_related' not in item_class:
                         product_list_items.append(item)
-                print(f"  [DEBUG] Найдено product_list, all_items: {len(all_items)}, product_list_items (без рекламы): {len(product_list_items)}")
             else:
-                print(f"  [DEBUG] product_list НЕ найден, ищем альтернативно...")
                 product_list_items = await page.query_selector_all('.product-list__item, article, div[class*="card"], div[class*="item"], .product-card, .catalog-item, div.product')
-                print(f"  [DEBUG] Альтернативно найдено элементов: {len(product_list_items)}")
 
             total_items = len(product_list_items)
 
@@ -94,15 +91,11 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 test_name = ""
                 if test_link:
                     test_name = await test_link.get_attribute('title') or await test_link.inner_text()
-                print(f"  [DEBUG] Первый item: name='{test_name[:80] if test_name else ''}...'")
                 
                 # Проверяем цену
                 test_price_el = await test_item.query_selector('.product-price-new__price_main')
                 if test_price_el:
                     test_price_text = await test_price_el.inner_text()
-                    print(f"  [DEBUG] Первый item: price_text='{test_price_text}'")
-                else:
-                    print(f"  [DEBUG] Первый item: цена НЕ найдена")
 
             # Сначала собираем все карточки с product_name
             all_products = []
@@ -177,7 +170,6 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 return results, "", total_items, matched_count
             else:
                 # Если нет подходящих карточек
-                print(f"  [DEBUG] results пустой, total_items: {total_items}")
                 html_content = await page.content()
                 return [(0.0, False, "элементы не найдены", "", html_content)], "элементы не найдены", 0, 0
 
@@ -309,8 +301,6 @@ async def main_async():
             brand = str(row['Бренд']).strip()
             article = str(row['Артикул']).strip()
             start = perf_counter()
-            info = f"[{idx+1}/{len(df)}] {brand}/{article}"
-            print(f"{info:<80}", end=" | ")
 
             results, error_msg, total_items, matched_items = await get_price_async(page, brand, article)
 
@@ -334,24 +324,24 @@ async def main_async():
                         df.at[idx, 'Цена_Гиперавто_КнА'] = price
                         first_price_set = True
 
-                    name_display = f"{brand}/{article}"[:40]
+                    name_display = f"{brand}/{article}"[:30]
                     price_display = f"{price:,.2f}"[:10]
                     price_text_display = price_text[:20] if len(price_text) > 20 else price_text
                     product_name_display = product_name[:50] if len(product_name) > 50 else product_name
                     # Если несколько позиций, добавляем номер [idx/total][result_idx]
                     if len(results) > 1:
-                        print(f"[{idx+1}/{len(df)}][{result_idx+1}] {name_display:<40} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
+                        print(f"[{idx+1}/{len(df)}][{result_idx+1}] {name_display:<30} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
                     else:
-                        print(f"[{idx+1}/{len(df)}] {name_display:<40} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
+                        print(f"[{idx+1}/{len(df)}]     {name_display:<30} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
                 else:
-                    name_display = f"{brand}/{article}"[:40]
+                    name_display = f"{brand}/{article}"[:30]
                     price_text_display = price_text[:20] if len(price_text) > 20 else price_text
                     product_name_display = product_name[:50] if len(product_name) > 50 else product_name
                     # Если несколько позиций, добавляем номер
                     if len(results) > 1:
-                        print(f"[{idx+1}/{len(df)}][{result_idx+1}] {name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
+                        print(f"[{idx+1}/{len(df)}][{result_idx+1}] {name_display:<30} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
                     else:
-                        print(f"[{idx+1}/{len(df)}] {name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
+                        print(f"[{idx+1}/{len(df)}]     {name_display:<30} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
                     has_errors = True
 
             # Сохраняем HTML при ошибках (один файл на итерацию)
