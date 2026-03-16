@@ -53,23 +53,19 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             # Находим контейнер со списком товаров
             product_list = await page.query_selector('.product-list.product-list_row')
             
-            # Если нашли список - берём элементы внутри него, иначе ищем все карточки на странице
+            # Если нашли список - берём элементы внутри него
             if product_list:
-                # Ищем .product-list__item как основные карточки
-                product_list_items = await product_list.query_selector_all(':scope > .product-list__item')
-                # Извлекаем .product-card из каждого .product-list__item
-                product_cards = []
-                for item in product_list_items:
-                    card = await item.query_selector('.product-card')
-                    if card:
-                        product_cards.append(card)
-                print(f"  [DEBUG] Найдено product_list, product_list_items: {len(product_list_items)}, product_cards: {len(product_cards)}")
+                # Ищем .product-list__item как основные контейнеры
+                all_items = await product_list.query_selector_all(':scope > .product-list__item')
+                # Пропускаем первый элемент (реклама) и берём только товары
+                product_list_items = [item for item in all_items if not await item.query_selector('.product-list__item__search_related')]
+                print(f"  [DEBUG] Найдено product_list, all_items: {len(all_items)}, product_list_items (без рекламы): {len(product_list_items)}")
             else:
                 print(f"  [DEBUG] product_list НЕ найден, ищем альтернативно...")
-                product_cards = await page.query_selector_all('.product-list__item, article, div[class*="card"], div[class*="item"], .product-card, .catalog-item, div.product')
-                print(f"  [DEBUG] Альтернативно найдено элементов: {len(product_cards)}")
+                product_list_items = await page.query_selector_all('.product-list__item, article, div[class*="card"], div[class*="item"], .product-card, .catalog-item, div.product')
+                print(f"  [DEBUG] Альтернативно найдено элементов: {len(product_list_items)}")
 
-            total_items = len(product_cards)
+            total_items = len(product_list_items)
 
             # Проверяем наличие бренда и артикула в наименовании
             def check_brand_article_in_name(product_name: str, brand: str, article: str) -> bool:
@@ -87,53 +83,41 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             matched_count = 0
 
             # Отладка: проверяем первую карточку
-            if product_cards:
-                test_card = product_cards[0]
-                # Получаем весь HTML карточки для анализа
-                test_html = await test_card.inner_html()
-                print(f"  [DEBUG] Первая карточка HTML (первые 500 симв): {test_html[:500]}...")
-                
-                # Пробуем найти все ссылки
-                all_links = await test_card.query_selector_all('a')
-                print(f"  [DEBUG] Первая карточка: найдено ссылок: {len(all_links)}")
-                for i, link in enumerate(all_links[:3]):
-                    href = await link.get_attribute('href')
-                    title = await link.get_attribute('title')
-                    text = await link.inner_text()
-                    print(f"  [DEBUG]   Ссылка {i}: href='{href[:50] if href else ''}', title='{title[:50] if title else ''}', text='{text[:50] if text else ''}'")
-                
-                # Пробуем разные селекторы
-                test_name_el = await test_card.query_selector('a[href*="/product/"]')
+            if product_list_items:
+                test_item = product_list_items[0]
+                # Ищем ссылку внутри .product-card
+                test_link = await test_item.query_selector('a[href*="/product/"]')
                 test_name = ""
-                if test_name_el:
-                    test_name = await test_name_el.get_attribute('title') or await test_name_el.inner_text()
-                print(f"  [DEBUG] Первая карточка: name='{test_name[:80] if test_name else ''}...'")
+                if test_link:
+                    test_name = await test_link.get_attribute('title') or await test_link.inner_text()
+                print(f"  [DEBUG] Первый item: name='{test_name[:80] if test_name else ''}...'")
                 
                 # Проверяем цену
-                test_price_el = await test_card.query_selector('.product-price-new__price_main')
+                test_price_el = await test_item.query_selector('.product-price-new__price_main')
                 if test_price_el:
                     test_price_text = await test_price_el.inner_text()
-                    print(f"  [DEBUG] Первая карточка: price_text='{test_price_text}'")
+                    print(f"  [DEBUG] Первый item: price_text='{test_price_text}'")
                 else:
-                    print(f"  [DEBUG] Первая карточка: цена НЕ найдена")
+                    print(f"  [DEBUG] Первый item: цена НЕ найдена")
 
-            for card in product_cards:
+            for item_idx, item in enumerate(product_list_items):
                 # Извлекаем наименование товара из карточки
                 product_name = ""
                 # Ищем ссылку с href содержащим /product/
-                name_element = await card.query_selector('a[href*="/product/"]')
+                name_element = await item.query_selector('a[href*="/product/"]')
                 if name_element:
                     product_name = await name_element.get_attribute('title') or await name_element.inner_text()
 
-                print(f"  [DEBUG] Card: product_name='{product_name[:50] if product_name else 'EMPTY'}...'")
+                if item_idx == 0:
+                    print(f"  [DEBUG] Item: product_name='{product_name[:50] if product_name else 'EMPTY'}...'")
 
-                # Ищем цену в карточке
+                # Ищем цену в элементе
                 price_val = 0.0
                 price_text = ""
                 is_price = False
 
-                # search_context — это сама карточка
-                search_context = card
+                # search_context — это сам item
+                search_context = item
 
                 # Приоритет 1: ищем цену в .price.price_big.price_green внутри карточки
                 price_green_elements = await search_context.query_selector_all('.price.price_big.price_green')
