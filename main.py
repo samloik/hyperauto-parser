@@ -112,28 +112,32 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                         test_availability = ' '.join(link_text.split()).strip()
                         break
                 
-                # Проверяем доставку
+                # Если не нашли "В наличии", ищем дату доставки
+                delivery_blocks = []
                 if not test_availability:
-                    delivery_variants = await test_item.query_selector_all('.block-delivery__variant-main')
-                    for variant in delivery_variants:
-                        delivery_b = await variant.query_selector('b.mr-4')
-                        if delivery_b:
-                            b_text = await delivery_b.inner_text()
-                            print(f"  [DEBUG] TEST delivery_b text: '{b_text}'")
-                            if 'Доставка' in b_text:
-                                mb8_div = await variant.query_selector('div.mb-8')
-                                print(f"  [DEBUG] TEST mb8_div found: {mb8_div is not None}")
-                                if mb8_div:
-                                    next_b = await mb8_div.query_selector('b')
-                                    print(f"  [DEBUG] TEST next_b found: {next_b is not None}")
-                                    if next_b:
-                                        delivery_date = await next_b.inner_text()
-                                        print(f"  [DEBUG] TEST delivery_date: '{delivery_date}'")
-                                        test_availability = f"Доставка: {' '.join(delivery_date.split()).strip()}"
-                                        break
+                    delivery_blocks = await test_item.query_selector_all('.block-delivery__variant-main')
+                    for block in delivery_blocks:
+                        delivery_label = await block.query_selector('b.mr-4')
+                        if delivery_label:
+                            label_text = await delivery_label.inner_text()
+                            print(f"  [DEBUG] TEST delivery_label: '{label_text}'")
+                            if 'Доставка' in label_text:
+                                parent = await block.evaluate_handle('el => el.parentElement')
+                                if parent:
+                                    next_divs = await parent.query_selector_all('div.mb-8')
+                                    print(f"  [DEBUG] TEST next_divs count: {len(next_divs)}")
+                                    for next_div in next_divs:
+                                        next_b = await next_div.query_selector('b')
+                                        if next_b:
+                                            delivery_date = await next_b.inner_text()
+                                            print(f"  [DEBUG] TEST delivery_date: '{delivery_date}'")
+                                            test_availability = f"Доставка: {' '.join(delivery_date.split()).strip()}"
+                                            break
+                                if test_availability:
+                                    break
                 
                 print(f"  [DEBUG] Первый item: availability='{test_availability}'")
-                print(f"  [DEBUG] Первый item: all_links={len(test_links)}, delivery_variants={len(delivery_variants)}")
+                print(f"  [DEBUG] Первый item: all_links={len(test_links)}, delivery_blocks={len(delivery_blocks)}")
 
             # Сначала собираем все карточки с product_name
             all_products = []
@@ -153,8 +157,9 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                         if product_name:
                             break
 
-                # Проверяем наличие товара
+                # Проверяем наличие товара (ищем <b>В наличии</b> внутри <a>)
                 availability = ""
+                all_links = await item.query_selector_all('a')
                 for link in all_links:
                     b_element = await link.query_selector('b')
                     if b_element:
@@ -167,30 +172,33 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                         availability = ' '.join(link_text.split()).strip()
                         break
 
-                # Если не нашли "В наличии", ищем доставку
+                # Если не нашли "В наличии", ищем дату доставки
                 if not availability:
-                    delivery_variants = await item.query_selector_all('.block-delivery__variant-main')
-                    for variant in delivery_variants:
-                        delivery_b = await variant.query_selector('b.mr-4')
-                        if delivery_b:
-                            b_text = await delivery_b.inner_text()
-                            print(f"  [DEBUG] delivery_b text: '{b_text}'")
-                            if 'Доставка' in b_text:
-                                mb8_div = await variant.query_selector('div.mb-8')
-                                print(f"  [DEBUG] mb8_div found: {mb8_div is not None}")
-                                if mb8_div:
-                                    next_b = await mb8_div.query_selector('b')
-                                    print(f"  [DEBUG] next_b found: {next_b is not None}")
-                                    if next_b:
-                                        delivery_date = await next_b.inner_text()
-                                        print(f"  [DEBUG] delivery_date: '{delivery_date}'")
-                                        delivery_date_clean = ' '.join(delivery_date.split()).strip()
-                                        availability = f"Доставка: {delivery_date_clean}"
-                                        break
+                    # Ищем <div class="block-delivery__variant-main"> с <b class="mr-4">Доставка</b>
+                    delivery_blocks = await item.query_selector_all('.block-delivery__variant-main')
+                    for block in delivery_blocks:
+                        delivery_label = await block.query_selector('b.mr-4')
+                        if delivery_label:
+                            label_text = await delivery_label.inner_text()
+                            if 'Доставка' in label_text:
+                                # Ищем следующий div с <b> после текущего блока
+                                parent = await block.evaluate_handle('el => el.parentElement')
+                                if parent:
+                                    # Ищем все div.mb-8 внутри родителя
+                                    next_divs = await parent.query_selector_all('div.mb-8')
+                                    for next_div in next_divs:
+                                        next_b = await next_div.query_selector('b')
+                                        if next_b:
+                                            delivery_date = await next_b.inner_text()
+                                            if delivery_date and 'Доставка' not in delivery_date:
+                                                availability = f"Доставка: {' '.join(delivery_date.split()).strip()}"
+                                                break
+                                if availability:
+                                    break
 
                 # Отладка для первого элемента
                 if item_idx == 0:
-                    print(f"  [DEBUG] Item 0: product_name='{product_name[:50]}', availability='{availability}', all_links={len(all_links)}, delivery_variants={len(delivery_variants)}")
+                    print(f"  [DEBUG] Item 0: product_name='{product_name[:50]}', availability='{availability}', all_links={len(all_links)}")
 
                 # Ищем цену в элементе
                 price_val = 0.0
