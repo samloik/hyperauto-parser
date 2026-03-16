@@ -89,7 +89,8 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             # Отладка: проверяем первую карточку
             if product_cards:
                 test_card = product_cards[0]
-                test_name_el = await test_card.query_selector('.product-card__title a, a[title], a[href*="/product/"]')
+                # Пробуем разные селекторы
+                test_name_el = await test_card.query_selector('a[href*="/product/"]')
                 test_name = ""
                 if test_name_el:
                     test_name = await test_name_el.get_attribute('title') or await test_name_el.inner_text()
@@ -106,8 +107,8 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             for card in product_cards:
                 # Извлекаем наименование товара из карточки
                 product_name = ""
-                # Ищем ссылку внутри .product-card__title или по атрибутам
-                name_element = await card.query_selector('.product-card__title a, a[title], a[href*="/product/"]')
+                # Ищем ссылку с href содержащим /product/
+                name_element = await card.query_selector('a[href*="/product/"]')
                 if name_element:
                     product_name = await name_element.get_attribute('title') or await name_element.inner_text()
 
@@ -118,9 +119,8 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 price_text = ""
                 is_price = False
 
-                # Находим .product-card внутри .product-list__item (если это .product-list__item)
-                product_card = await card.query_selector('.product-card')
-                search_context = product_card if product_card else card
+                # search_context — это сама карточка
+                search_context = card
 
                 # Приоритет 1: ищем цену в .price.price_big.price_green внутри карточки
                 price_green_elements = await search_context.query_selector_all('.price.price_big.price_green')
