@@ -119,12 +119,16 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                         delivery_b = await variant.query_selector('b.mr-4')
                         if delivery_b:
                             b_text = await delivery_b.inner_text()
+                            print(f"  [DEBUG] TEST delivery_b text: '{b_text}'")
                             if 'Доставка' in b_text:
                                 mb8_div = await variant.query_selector('div.mb-8')
+                                print(f"  [DEBUG] TEST mb8_div found: {mb8_div is not None}")
                                 if mb8_div:
                                     next_b = await mb8_div.query_selector('b')
+                                    print(f"  [DEBUG] TEST next_b found: {next_b is not None}")
                                     if next_b:
                                         delivery_date = await next_b.inner_text()
+                                        print(f"  [DEBUG] TEST delivery_date: '{delivery_date}'")
                                         test_availability = f"Доставка: {' '.join(delivery_date.split()).strip()}"
                                         break
                 
@@ -170,12 +174,16 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                         delivery_b = await variant.query_selector('b.mr-4')
                         if delivery_b:
                             b_text = await delivery_b.inner_text()
+                            print(f"  [DEBUG] delivery_b text: '{b_text}'")
                             if 'Доставка' in b_text:
                                 mb8_div = await variant.query_selector('div.mb-8')
+                                print(f"  [DEBUG] mb8_div found: {mb8_div is not None}")
                                 if mb8_div:
                                     next_b = await mb8_div.query_selector('b')
+                                    print(f"  [DEBUG] next_b found: {next_b is not None}")
                                     if next_b:
                                         delivery_date = await next_b.inner_text()
+                                        print(f"  [DEBUG] delivery_date: '{delivery_date}'")
                                         delivery_date_clean = ' '.join(delivery_date.split()).strip()
                                         availability = f"Доставка: {delivery_date_clean}"
                                         break
