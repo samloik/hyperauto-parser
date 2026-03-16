@@ -107,10 +107,14 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             for item_idx, item in enumerate(product_list_items):
                 # Извлекаем наименование товара из карточки
                 product_name = ""
-                # Ищем все ссылки и находим ту, что ведёт на товар
+                # Ищем все ссылки и находим ту, что ведёт на товар (не отзыв)
                 all_links = await item.query_selector_all('a')
                 for link in all_links:
                     href = await link.get_attribute('href')
+                    link_class = await link.get_attribute('class') or ''
+                    # Пропускаем ссылки на отзывы
+                    if 'rating__feedback' in link_class:
+                        continue
                     if href and '/product/' in href:
                         product_name = await link.get_attribute('title') or await link.inner_text()
                         if product_name:
