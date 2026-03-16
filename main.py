@@ -53,11 +53,17 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             # Находим контейнер со списком товаров
             product_list = await page.query_selector('.product-list.product-list_row')
             
-            # Отладка: проверяем что нашли
+            # Если нашли список - берём элементы внутри него, иначе ищем все карточки на странице
             if product_list:
                 # Ищем .product-list__item как основные карточки
-                product_cards = await product_list.query_selector_all(':scope > .product-list__item')
-                print(f"  [DEBUG] Найдено product_list, элементов: {len(product_cards)}")
+                product_list_items = await product_list.query_selector_all(':scope > .product-list__item')
+                # Извлекаем .product-card из каждого .product-list__item
+                product_cards = []
+                for item in product_list_items:
+                    card = await item.query_selector('.product-card')
+                    if card:
+                        product_cards.append(card)
+                print(f"  [DEBUG] Найдено product_list, product_list_items: {len(product_list_items)}, product_cards: {len(product_cards)}")
             else:
                 print(f"  [DEBUG] product_list НЕ найден, ищем альтернативно...")
                 product_cards = await page.query_selector_all('.product-list__item, article, div[class*="card"], div[class*="item"], .product-card, .catalog-item, div.product')
