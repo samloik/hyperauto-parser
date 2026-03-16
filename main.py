@@ -440,6 +440,34 @@ async def main_async():
     timestamp = datetime.now().strftime('%Y%m%d_%H%M')
     out = f"{OUTPUT_FILE_PREFIX}_{timestamp}.xlsx"
     df.to_excel(out, index=False)
+    
+    # Устанавливаем ширину колонок по максимальному содержимому
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(out)
+        ws = wb.active
+        
+        # Вычисляем максимальную длину текста в каждой колонке
+        for col_idx, col_name in enumerate(df.columns, 1):
+            col_letter = chr(64 + col_idx)  # A=65, B=66, etc.
+            
+            # Находим максимальную длину текста в колонке
+            max_length = 0
+            for value in df[col_name]:
+                if pd.notna(value):
+                    text_length = len(str(value))
+                    if text_length > max_length:
+                        max_length = text_length
+            
+            # Устанавливаем ширину колонки (максимум 80, минимум 10)
+            col_width = min(max(max_length + 2, 10), 80)
+            ws.column_dimensions[col_letter].width = col_width
+        
+        wb.save(out)
+        wb.close()
+    except Exception as e:
+        print(f"Warning: Could not adjust column widths: {e}")
+    
     print(f"\nСохранено → {out}")
     print(f"\n⏱ Всего: {total_elapsed:.1f} сек | Среднее на позицию: {avg_time:.1f} сек")
 
