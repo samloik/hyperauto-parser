@@ -5,6 +5,7 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 from datetime import datetime
 import os
 from time import perf_counter
+from pathlib import Path
 
 # ================= НАСТРОЙКИ =================
 INPUT_FILE = 'товары.xlsx'
@@ -13,9 +14,10 @@ CITY_SLUG = 'komsomolsk'
 DELAY = 5.0               # сек между товарами
 TIMEOUT = 25000           # ms
 COOKIES_FILE = 'cookies.json'  # файл с сессией (cookies)
+ERRORS_DIR = 'Errors'      # папка для сохранения HTML при ошибках
 
 
-async def get_price_async(page, brand: str, article: str) -> (float, bool, str, str):
+async def get_price_async(page, brand: str, article: str) -> (float, bool, str, str, str):
     max_retries = 3
     retry_count = 0
 
@@ -38,7 +40,8 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
                 await page.wait_for_selector('.product-card, .catalog-item, article, [data-product-id], .price', timeout=15000)
             except PlaywrightTimeoutError:
                 print(f"    Таймаут ожидания карточек для {brand}/{article}")
-                return (0.0, False, "таймаут ожидания карточек", "")
+                html_content = await page.content()
+                return (0.0, False, "таймаут ожидания карточек", "", html_content)
 
             # Приоритет 1: ищем цену в .price.price_big.price_green
             price_green_elements = await page.query_selector_all('.price.price_big.price_green')
@@ -62,7 +65,7 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
                     price_val = float(price_str)
                     parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
                     if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                        return (price_val, True, text.strip(), product_name)
+                        return (price_val, True, text.strip(), product_name, "")
                 except ValueError:
                     continue
 
@@ -82,7 +85,8 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
                         await page.wait_for_timeout(3000)
                         break  # выходим из цикла for, переходим на следующую попытку while
                     else:
-                        return (0.0, False, "Стоимость: (превышено число попыток)", "")
+                        html_content = await page.content()
+                        return (0.0, False, "Стоимость: (превышено число попыток)", "", html_content)
 
                 # Очищаем текст от лишних символов
                 price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
@@ -95,11 +99,11 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
                     price_val = float(price_str)
                     # Для точного селектора .product-price-new__price_main возвращаем цену сразу
                     if await el.evaluate('el => el.matches(".product-price-new__price_main")'):
-                        return (price_val, True, text.strip(), product_name)
+                        return (price_val, True, text.strip(), product_name, "")
                     # Для запасных селекторов проверяем наличие артикула в родительском контейнере
                     parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
                     if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                        return (price_val, True, text.strip(), product_name)
+                        return (price_val, True, text.strip(), product_name, "")
                 except ValueError:
                     continue
 
@@ -117,12 +121,13 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
             else:
                 price_str = price_str_list[0]
             try:
-                return (float(price_str), True, price_str, product_name)
+                return (float(price_str), True, price_str, product_name, "")
             except ValueError:
                 pass
 
             # Возвращаем текст последнего просмотренного элемента
-            return (0.0, False, last_text if last_text else "элементы цены не найдены", "")
+            html_content = await page.content()
+            return (0.0, False, last_text if last_text else "элементы цены не найдены", "", html_content)
 
         except Exception as e:
             print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
@@ -130,9 +135,13 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
             if retry_count < max_retries:
                 await page.wait_for_timeout(3000)
                 continue
-            return (0.0, False, f"ошибка: {str(e)[:50]}", "")
+            try:
+                html_content = await page.content()
+            except:
+                html_content = "<html><body>Не удалось получить HTML</body></html>"
+            return (0.0, False, f"ошибка: {str(e)[:50]}", "", html_content)
 
-    return (0.0, False, "превышено число попыток", "")
+    return (0.0, False, "превышено число попыток", "", "")
 
 
 async def main_async():
@@ -240,6 +249,12 @@ async def main_async():
         total_start = perf_counter()
         times = []
 
+        # Создаём папку для ошибок
+        errors_path = Path(ERRORS_DIR)
+        errors_path.mkdir(exist_ok=True)
+
+        error_counter = 0
+
         for idx, row in df.iterrows():
             brand = str(row['Бренд']).strip()
             article = str(row['Артикул']).strip()
@@ -247,7 +262,7 @@ async def main_async():
             info = f"[{idx+1}/{len(df)}] {brand}/{article}"
             print(f"{info:<80}", end=" | ")
 
-            price, is_price, price_text, product_name = await get_price_async(page, brand, article)
+            price, is_price, price_text, product_name, html_content = await get_price_async(page, brand, article)
 
             elapsed = perf_counter() - start
             times.append(elapsed)
@@ -263,6 +278,17 @@ async def main_async():
                 name_display = f"{brand}/{article}"[:40]
                 price_text_display = price_text[:20] if len(price_text) > 20 else price_text
                 print(f"{name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {price_text_display}")
+                
+                # Сохраняем HTML при ошибках
+                if html_content:
+                    error_counter += 1
+                    # Очищаем название ошибки для имени файла
+                    error_name = price_text.replace(':', '').replace('/', '_').replace('\\', '_').replace('<', '_').replace('>', '_').replace('"', '_').replace('|', '_').replace('?', '_').replace('*', '_')[:50]
+                    html_filename = f"{error_counter}-{brand}-{article}-{error_name}.html"
+                    html_filepath = errors_path / html_filename
+                    with open(html_filepath, 'w', encoding='utf-8') as f:
+                        f.write(html_content)
+                    print(f"  → Сохранено: {html_filename}")
 
             await page.wait_for_timeout(int(DELAY * 1000))
 
