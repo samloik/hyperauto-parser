@@ -248,11 +248,14 @@ async def main_async():
 
             if is_price is not False:
                 df.at[idx, 'Цена_Гиперавто_КнА'] = price
-                price_display = price_text[:40] if len(price_text) > 40 else price_text
-                print(f"{price:>30,.2f} | '{price_display:<40}' | {elapsed:>8.1f} сек")
+                name_display = f"{brand}/{article}"[:40]
+                price_display = f"{price:,.2f}"[:10]
+                price_text_display = price_text[:30] if len(price_text) > 30 else price_text
+                print(f"{name_display:<40} | {price_display:>10} | {price_text_display:<30} | {elapsed:>10.1f} сек")
             else:
-                price_display = price_text[:40] if len(price_text) > 40 else price_text
-                print(f"{'✗ не найдено':>30} | '{price_display:<40}' | {elapsed:>8.1f} сек")
+                name_display = f"{brand}/{article}"[:40]
+                price_text_display = price_text[:30] if len(price_text) > 30 else price_text
+                print(f"{name_display:<40} | {'✗':>10} | {price_text_display:<30} | {elapsed:>10.1f} сек")
 
             await page.wait_for_timeout(int(DELAY * 1000))
 
