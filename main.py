@@ -368,7 +368,6 @@ async def main_async():
             results, error_msg, total_items, matched_items = await get_price_async(page, brand, article)
 
             elapsed = perf_counter() - start
-            times.append(elapsed)
 
             # Обрабатываем результаты
             has_errors = False
@@ -379,6 +378,10 @@ async def main_async():
                     prefix = format_prefix(idx, result_idx, len(results))
                 else:
                     prefix = format_prefix(idx, None, 1)
+                
+                # Для общего времени считаем только первую позицию каждого запроса
+                if result_idx == 0:
+                    times.append(elapsed)
                 
                 # Создаём строку для Excel
                 result_row = {
