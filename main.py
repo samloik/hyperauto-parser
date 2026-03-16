@@ -17,7 +17,14 @@ COOKIES_FILE = 'cookies.json'  # файл с сессией (cookies)
 ERRORS_DIR = 'Errors'      # папка для сохранения HTML при ошибках
 
 
-async def get_price_async(page, brand: str, article: str) -> (float, bool, str, str, str):
+async def get_price_async(page, brand: str, article: str) -> (list, str, int, int):
+    """
+    Возвращает:
+    - list кортежей (price, is_price, price_text, product_name, html_content)
+    - error_message (если общая ошибка)
+    - total_items (общее количество на странице)
+    - matched_items (количество совпавших)
+    """
     max_retries = 3
     retry_count = 0
 
@@ -41,16 +48,11 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
             except PlaywrightTimeoutError:
                 print(f"    Таймаут ожидания карточек для {brand}/{article}")
                 html_content = await page.content()
-                return (0.0, False, "таймаут ожидания карточек", "", html_content)
+                return [(0.0, False, "таймаут ожидания карточек", "", html_content)], "таймаут", 0, 0
 
-            # Приоритет 1: ищем цену в .price.price_big.price_green
-            price_green_elements = await page.query_selector_all('.price.price_big.price_green')
-
-            # Извлекаем наименование товара
-            product_name = ""
-            name_element = await page.query_selector('a[title*="' + article + '"], a[title*="' + brand + '"]')
-            if name_element:
-                product_name = await name_element.get_attribute('title') or await name_element.inner_text()
+            # Находим все карточки товаров на странице
+            product_cards = await page.query_selector_all('article, div[class*="card"], div[class*="item"], .product-card, .catalog-item')
+            total_items = len(product_cards)
 
             # Проверяем наличие бренда и артикула в наименовании
             def check_brand_article_in_name(product_name: str, brand: str, article: str) -> bool:
@@ -64,102 +66,69 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
                 # Проверяем наличие обоих: бренд И артикул (с пробелом) в наименовании
                 return brand_upper in name_upper and article_upper in name_upper
 
-            for el in price_green_elements:
-                text = (await el.inner_text()).strip()
-                # Очищаем текст от лишних символов
-                price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
-                price_str_list = price_str.split('\n')
-                if len(price_str_list) > 1:
-                    price_str = price_str_list[1]
-                else:
-                    price_str = price_str_list[0]
-                try:
-                    price_val = float(price_str)
-                    parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
-                    if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                        # Проверяем наличие бренда и артикула в наименовании
-                        if check_brand_article_in_name(product_name, brand, article):
-                            return (price_val, True, text.strip(), product_name, "")
-                        else:
-                            html_content = await page.content()
-                            return (0.0, False, "ошибка нет Бренда и Артикула в наименовании", "", html_content)
-                except ValueError:
-                    continue
+            results = []
+            matched_count = 0
 
-            # Приоритет 2: ищем цену в .product-price-new__price_main
-            price_elements = await page.query_selector_all('.product-price-new__price_main')
+            for card in product_cards:
+                # Извлекаем наименование товара из карточки
+                product_name = ""
+                name_element = await card.query_selector('a[title], a[href*="/product/"]')
+                if name_element:
+                    product_name = await name_element.get_attribute('title') or await name_element.inner_text()
 
-            last_text = ""
-            for el in price_elements:
-                text = (await el.inner_text()).strip()
-                last_text = text.strip()
+                # Ищем цену в карточке
+                price_val = 0.0
+                price_text = ""
+                is_price = False
 
-                # Проверяем на "Стоимость:" — нужно подождать и попробовать снова
-                if text.strip() == "Стоимость:":
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        print(f"  [Попытка {retry_count}/{max_retries}] Найдено 'Стоимость:', ждём и пробуем снова...")
-                        await page.wait_for_timeout(3000)
-                        break  # выходим из цикла for, переходим на следующую попытку while
-                    else:
-                        html_content = await page.content()
-                        return (0.0, False, "Стоимость: (превышено число попыток)", "", html_content)
+                # Приоритет 1: ищем цену в .price.price_big.price_green внутри карточки
+                price_green_elements = await card.query_selector_all('.price.price_big.price_green')
+                for el in price_green_elements:
+                    text = (await el.inner_text()).strip()
+                    price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
+                    price_str_list = price_str.split('\n')
+                    price_str = price_str_list[1] if len(price_str_list) > 1 else price_str_list[0]
+                    try:
+                        price_val = float(price_str)
+                        price_text = text.strip()
+                        is_price = True
+                        break
+                    except ValueError:
+                        continue
 
-                # Очищаем текст от лишних символов
-                price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
-                price_str_list = price_str.split('\n')
-                if len(price_str_list) > 1:
-                    price_str = price_str_list[1]
-                else:
-                    price_str = price_str_list[0]
-                try:
-                    price_val = float(price_str)
-                    # Для точного селектора .product-price-new__price_main возвращаем цену сразу
-                    if await el.evaluate('el => el.matches(".product-price-new__price_main")'):
-                        # Проверяем наличие бренда и артикула в наименовании
-                        if check_brand_article_in_name(product_name, brand, article):
-                            return (price_val, True, text.strip(), product_name, "")
-                        else:
-                            html_content = await page.content()
-                            return (0.0, False, "ошибка нет Бренда и Артикула в наименовании", "", html_content)
-                    # Для запасных селекторов проверяем наличие артикула в родительском контейнере
-                    parent_text = await el.evaluate('el => el.closest("article, div[class*=\'card\'], div[class*=\'item\'], .product-card, .catalog-item").innerText')
-                    if parent_text and (article.upper() in parent_text.upper() or brand.upper() in parent_text.upper()):
-                        # Проверяем наличие бренда и артикула в наименовании
-                        if check_brand_article_in_name(product_name, brand, article):
-                            return (price_val, True, text.strip(), product_name, "")
-                        else:
-                            html_content = await page.content()
-                            return (0.0, False, "ошибка нет Бренда и Артикула в наименовании", "", html_content)
-                except ValueError:
-                    continue
+                # Приоритет 2: ищем цену в .product-price-new__price_main внутри карточки
+                if not is_price:
+                    price_elements = await card.query_selector_all('.product-price-new__price_main')
+                    for el in price_elements:
+                        text = (await el.inner_text()).strip()
+                        if text.strip() == "Стоимость:":
+                            continue
+                        price_str = text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
+                        price_str_list = price_str.split('\n')
+                        price_str = price_str_list[1] if len(price_str_list) > 1 else price_str_list[0]
+                        try:
+                            price_val = float(price_str)
+                            price_text = text.strip()
+                            is_price = True
+                            break
+                        except ValueError:
+                            continue
 
-            # Если вышли из цикла for из-за "Стоимость:", продолжаем while
-            if last_text == "Стоимость:":
-                continue
-
-            # Запасной вариант — ищем цену по всей странице
-            page_text = await page.inner_text('body')
-            # Очищаем текст и ищем цену
-            price_str = page_text.replace(' ', '').replace(',', '.').replace('\u2009', '').replace('\xa0', '').replace('₽', '')
-            price_str_list = price_str.split('\n')
-            if len(price_str_list) > 1:
-                price_str = price_str_list[1]
-            else:
-                price_str = price_str_list[0]
-            try:
-                # Проверяем наличие бренда и артикула в наименовании
+                # Проверяем соответствие бренда и артикула
                 if check_brand_article_in_name(product_name, brand, article):
-                    return (float(price_str), True, price_str, product_name, "")
-                else:
+                    matched_count += 1
+                    results.append((price_val, is_price, price_text, product_name, ""))
+                elif is_price and product_name:
+                    # Цена найдена, но не совпадает - ошибка
                     html_content = await page.content()
-                    return (0.0, False, "ошибка нет Бренда и Артикула в наименовании", "", html_content)
-            except ValueError:
-                pass
+                    results.append((0.0, False, "ошибка нет Бренда и Артикула в наименовании", product_name, html_content))
 
-            # Возвращаем текст последнего просмотренного элемента
+            if results:
+                return results, "", total_items, matched_count
+
+            # Если карточки не найдены
             html_content = await page.content()
-            return (0.0, False, last_text if last_text else "элементы цены не найдены", "", html_content)
+            return [(0.0, False, "элементы цены не найдены", "", html_content)], "элементы не найдены", 0, 0
 
         except Exception as e:
             print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
@@ -171,9 +140,9 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
                 html_content = await page.content()
             except:
                 html_content = "<html><body>Не удалось получить HTML</body></html>"
-            return (0.0, False, f"ошибка: {str(e)[:50]}", "", html_content)
+            return [(0.0, False, f"ошибка: {str(e)[:50]}", "", html_content)], f"ошибка: {str(e)[:50]}", 0, 0
 
-    return (0.0, False, "превышено число попыток", "", "")
+    return [(0.0, False, "превышено число попыток", "", "")], "превышено число попыток", 0, 0
 
 
 async def main_async():
@@ -292,34 +261,60 @@ async def main_async():
             info = f"[{idx+1}/{len(df)}] {brand}/{article}"
             print(f"{info:<80}", end=" | ")
 
-            price, is_price, price_text, product_name, html_content = await get_price_async(page, brand, article)
+            results, error_msg, total_items, matched_items = await get_price_async(page, brand, article)
 
             elapsed = perf_counter() - start
             times.append(elapsed)
 
-            if is_price is not False:
-                df.at[idx, 'Цена_Гиперавто_КнА'] = price
-                name_display = f"{brand}/{article}"[:40]
-                price_display = f"{price:,.2f}"[:10]
-                price_text_display = price_text[:20] if len(price_text) > 20 else price_text
-                product_name_display = product_name[:50] if len(product_name) > 50 else product_name
-                print(f"{name_display:<40} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
+            # Выводим информацию о количестве позиций
+            if total_items > 0:
+                count_info = f"[{matched_items}/{total_items}]"
             else:
-                name_display = f"{brand}/{article}"[:40]
-                price_text_display = price_text[:20] if len(price_text) > 20 else price_text
-                print(f"{name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {price_text_display}")
-                
-                # Сохраняем HTML при ошибках
-                if html_content:
-                    # Номер позиции в общем списке
-                    position_num = idx + 1
-                    # Очищаем название ошибки для имени файла
-                    error_name = price_text.replace(':', '').replace('/', '_').replace('\\', '_').replace('<', '_').replace('>', '_').replace('"', '_').replace('|', '_').replace('?', '_').replace('*', '_')[:50]
-                    html_filename = f"{position_num}-{brand}-{article}-{error_name}.html"
-                    html_filepath = errors_path / html_filename
-                    with open(html_filepath, 'w', encoding='utf-8') as f:
-                        f.write(html_content)
-                    print(f"  → Сохранено: {html_filename}")
+                count_info = ""
+
+            # Обрабатываем результаты
+            first_price_set = False
+            saved_errors = []
+
+            for result_idx, (price, is_price, price_text, product_name, html_content) in enumerate(results):
+                if is_price is not False:
+                    if not first_price_set:
+                        # Первую цену записываем в DataFrame
+                        df.at[idx, 'Цена_Гиперавто_КнА'] = price
+                        first_price_set = True
+
+                    name_display = f"{brand}/{article}"[:40]
+                    price_display = f"{price:,.2f}"[:10]
+                    price_text_display = price_text[:20] if len(price_text) > 20 else price_text
+                    product_name_display = product_name[:50] if len(product_name) > 50 else product_name
+                    # Если несколько позиций, добавляем номер
+                    if len(results) > 1:
+                        print(f"{count_info}[{result_idx+1}] {name_display:<40} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
+                    else:
+                        print(f"{count_info} {name_display:<40} | {price_display:>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {product_name_display}")
+                else:
+                    name_display = f"{brand}/{article}"[:40]
+                    price_text_display = price_text[:20] if len(price_text) > 20 else price_text
+                    if len(results) > 1:
+                        print(f"{count_info}[{result_idx+1}] {name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {price_text_display}")
+                    else:
+                        print(f"{count_info} {name_display:<40} | {'✗':>10} | {price_text_display:<20} | {elapsed:>10.1f} сек | {price_text_display}")
+
+                    # Сохраняем ошибки для последующего сохранения
+                    if html_content:
+                        saved_errors.append((price_text, html_content))
+
+            # Сохраняем HTML при ошибках
+            for err_idx, (err_text, html_content) in enumerate(saved_errors):
+                # Номер позиции в общем списке
+                position_num = idx + 1
+                # Очищаем название ошибки для имени файла
+                error_name = err_text.replace(':', '').replace('/', '_').replace('\\', '_').replace('<', '_').replace('>', '_').replace('"', '_').replace('|', '_').replace('?', '_').replace('*', '_')[:50]
+                html_filename = f"{position_num}-{brand}-{article}-{error_name}.html"
+                html_filepath = errors_path / html_filename
+                with open(html_filepath, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                print(f"  → Сохранено: {html_filename}")
 
             await page.wait_for_timeout(int(DELAY * 1000))
 
