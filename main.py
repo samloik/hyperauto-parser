@@ -86,6 +86,23 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             results = []
             matched_count = 0
 
+            # Отладка: проверяем первую карточку
+            if product_cards:
+                test_card = product_cards[0]
+                test_name_el = await test_card.query_selector('.product-card__title a, a[title], a[href*="/product/"]')
+                test_name = ""
+                if test_name_el:
+                    test_name = await test_name_el.get_attribute('title') or await test_name_el.inner_text()
+                print(f"  [DEBUG] Первая карточка: name='{test_name[:80] if test_name else ''}...'")
+                
+                # Проверяем цену
+                test_price_el = await test_card.query_selector('.product-price-new__price_main')
+                if test_price_el:
+                    test_price_text = await test_price_el.inner_text()
+                    print(f"  [DEBUG] Первая карточка: price_text='{test_price_text}'")
+                else:
+                    print(f"  [DEBUG] Первая карточка: цена НЕ найдена")
+
             for card in product_cards:
                 # Извлекаем наименование товара из карточки
                 product_name = ""
@@ -93,6 +110,8 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 name_element = await card.query_selector('.product-card__title a, a[title], a[href*="/product/"]')
                 if name_element:
                     product_name = await name_element.get_attribute('title') or await name_element.inner_text()
+
+                print(f"  [DEBUG] Card: product_name='{product_name[:50] if product_name else 'EMPTY'}...'")
 
                 # Ищем цену в карточке
                 price_val = 0.0
