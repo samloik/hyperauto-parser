@@ -89,6 +89,19 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             # Отладка: проверяем первую карточку
             if product_cards:
                 test_card = product_cards[0]
+                # Получаем весь HTML карточки для анализа
+                test_html = await test_card.inner_html()
+                print(f"  [DEBUG] Первая карточка HTML (первые 500 симв): {test_html[:500]}...")
+                
+                # Пробуем найти все ссылки
+                all_links = await test_card.query_selector_all('a')
+                print(f"  [DEBUG] Первая карточка: найдено ссылок: {len(all_links)}")
+                for i, link in enumerate(all_links[:3]):
+                    href = await link.get_attribute('href')
+                    title = await link.get_attribute('title')
+                    text = await link.inner_text()
+                    print(f"  [DEBUG]   Ссылка {i}: href='{href[:50] if href else ''}', title='{title[:50] if title else ''}', text='{text[:50] if text else ''}'")
+                
                 # Пробуем разные селекторы
                 test_name_el = await test_card.query_selector('a[href*="/product/"]')
                 test_name = ""
