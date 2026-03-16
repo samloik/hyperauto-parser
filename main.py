@@ -56,10 +56,12 @@ async def get_price_async(page, brand: str, article: str) -> (float, bool, str, 
             def check_brand_article_in_name(product_name: str, brand: str, article: str) -> bool:
                 if not product_name:
                     return False
-                name_upper = product_name.upper()
+                # Удаляем все '-' из наименования
+                name_upper = product_name.upper().replace('-', '')
                 brand_upper = brand.upper()
-                article_upper = article.upper()
-                # Проверяем наличие обоих: бренд И артикул в наименовании
+                # Добавляем пробел перед артикулом для поиска
+                article_upper = ' ' + article.upper()
+                # Проверяем наличие обоих: бренд И артикул (с пробелом) в наименовании
                 return brand_upper in name_upper and article_upper in name_upper
 
             for el in price_green_elements:
