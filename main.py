@@ -48,7 +48,7 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             except PlaywrightTimeoutError:
                 print(f"    Таймаут ожидания карточек для {brand}/{article}")
                 html_content = await page.content()
-                return [(0.0, False, "таймаут ожидания карточек", "", html_content, "")], "таймаут", 0, 0
+                return [(0.0, False, "таймаут ожидания карточек", "", html_content, "", "", "")], "таймаут", 0, 0
 
             # Находим контейнер со списком товаров
             product_list = await page.query_selector('.product-list.product-list_row')
@@ -115,6 +115,23 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                         product_name = await link.get_attribute('title') or await link.inner_text()
                         if product_name:
                             break
+
+                # Извлекаем бренд и артикул из карточки
+                item_brand = ""
+                item_article = ""
+                
+                # Ищем блоки с информацией о товаре
+                dotted_items = await item.query_selector_all('.dotted-list__item')
+                for dotted_item in dotted_items:
+                    title_attr = await dotted_item.get_attribute('title')
+                    if title_attr == 'Бренд':
+                        value_el = await dotted_item.query_selector('.dotted-list__item-value')
+                        if value_el:
+                            item_brand = (await value_el.inner_text()).strip()
+                    elif title_attr == 'Артикул':
+                        value_el = await dotted_item.query_selector('.dotted-list__item-value')
+                        if value_el:
+                            item_article = (await value_el.inner_text()).strip()
 
                 # Проверяем наличие товара (ищем <b>В наличии</b> внутри <a>)
                 availability = ""
@@ -209,15 +226,15 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                             continue
 
                 if product_name:
-                    all_products.append((price_val, is_price, price_text, product_name, availability))
+                    all_products.append((price_val, is_price, price_text, product_name, availability, item_brand, item_article))
 
             # Теперь фильтруем только подходящие по бренду и артикулу
             results = []
             matched_count = 0
-            for price_val, is_price, price_text, product_name, availability in all_products:
+            for price_val, is_price, price_text, product_name, availability, item_brand, item_article in all_products:
                 if check_brand_article_in_name(product_name, brand, article):
                     matched_count += 1
-                    results.append((price_val, is_price, price_text, product_name, "", availability))
+                    results.append((price_val, is_price, price_text, product_name, "", availability, item_brand, item_article))
 
             # Возвращаем все найденные позиции и количество совпавших
             if results:
@@ -225,7 +242,7 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             else:
                 # Если нет подходящих карточек
                 html_content = await page.content()
-                return [(0.0, False, "элементы не найдены", "", html_content, "")], "элементы не найдены", 0, 0
+                return [(0.0, False, "элементы не найдены", "", html_content, "", "", "")], "элементы не найдены", 0, 0
 
         except Exception as e:
             print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
@@ -237,9 +254,9 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 html_content = await page.content()
             except:
                 html_content = "<html><body>Не удалось получить HTML</body></html>"
-            return [(0.0, False, f"ошибка: {str(e)[:50]}", "", html_content, "")], f"ошибка: {str(e)[:50]}", 0, 0
+            return [(0.0, False, f"ошибка: {str(e)[:50]}", "", html_content, "", "", "")], f"ошибка: {str(e)[:50]}", 0, 0
 
-    return [(0.0, False, "превышено число попыток", "", "", "")], "превышено число попыток", 0, 0
+    return [(0.0, False, "превышено число попыток", "", "", "", "", "")], "превышено число попыток", 0, 0
 
 
 async def main_async():
@@ -387,7 +404,7 @@ async def main_async():
             # Обрабатываем результаты
             has_errors = False
 
-            for result_idx, (price, is_price, price_text, product_name, html_content, availability) in enumerate(results):
+            for result_idx, (price, is_price, price_text, product_name, html_content, availability, item_brand, item_article) in enumerate(results):
                 # Формируем префикс
                 if len(results) > 1:
                     prefix = format_prefix(idx, result_idx, len(results))
@@ -418,18 +435,22 @@ async def main_async():
                     price_display = f"{price:,.2f}"[:10]
                     product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
-                    print(f"{prefix:<14} {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
+                    brand_display = item_brand[:10] if item_brand else ""
+                    article_display = item_article[:15] if item_article else ""
+                    print(f"{prefix:<14} {brand_display:<10} | {article_display:<15} | {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                 else:
                     name_display = f"{brand}/{article}"[:25]
                     product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
-                    print(f"{prefix:<14} {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
+                    brand_display = item_brand[:10] if item_brand else ""
+                    article_display = item_article[:15] if item_article else ""
+                    print(f"{prefix:<14} {brand_display:<10} | {article_display:<15} | {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     has_errors = True
 
             # Сохраняем HTML при ошибках (один файл на итерацию)
             if has_errors and results:
                 # Берём HTML из первого результата с ошибкой
-                for price, is_price, price_text, product_name, html_content, availability in results:
+                for price, is_price, price_text, product_name, html_content, availability, item_brand, item_article in results:
                     if is_price is False and html_content:
                         # Номер позиции в общем списке
                         position_num = idx + 1
