@@ -308,6 +308,8 @@ async def main_async():
     df['Наименование'] = None
     df['Ссылка'] = None
     df['№'] = None
+    df['Бренд_карточка'] = None
+    df['Артикул_карточка'] = None
 
     # Проверяем наличие сохранённой сессии
     storage_state = None
@@ -425,7 +427,9 @@ async def main_async():
                     'Выполнение запроса': f"{elapsed:.1f} сек",
                     'Наличие': availability if availability else "",
                     'Наименование': product_name if product_name else (price_text if not is_price else ""),
-                    'Ссылка': f"https://hyperauto.ru/{CITY_SLUG}/search/{brand}/{article}/"
+                    'Ссылка': f"https://hyperauto.ru/{CITY_SLUG}/search/{brand}/{article}/",
+                    'Бренд_карточка': item_brand,
+                    'Артикул_карточка': item_article
                 }
                 all_results.append(result_row)
                 
@@ -436,15 +440,15 @@ async def main_async():
                     product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
                     brand_display = item_brand[:10] if item_brand else ""
-                    article_display = item_article[:15] if item_article else ""
-                    print(f"{prefix:<14} {brand_display:<10} | {article_display:<15} | {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
+                    article_display = item_article[:20] if item_article else ""
+                    print(f"{prefix:<14} {brand_display:<10} | {article_display:<20} | {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                 else:
                     name_display = f"{brand}/{article}"[:25]
                     product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
                     brand_display = item_brand[:10] if item_brand else ""
-                    article_display = item_article[:15] if item_article else ""
-                    print(f"{prefix:<14} {brand_display:<10} | {article_display:<15} | {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
+                    article_display = item_article[:20] if item_article else ""
+                    print(f"{prefix:<14} {brand_display:<10} | {article_display:<20} | {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     has_errors = True
 
             # Сохраняем HTML при ошибках (один файл на итерацию)
@@ -474,7 +478,7 @@ async def main_async():
     df = pd.DataFrame(all_results)
 
     # Переупорядочиваем колонки
-    df = df[['№', 'Бренд', 'Артикул', 'Цена_Гиперавто_КнА', 'Дата и время', 'Выполнение запроса', 'Наличие', 'Наименование', 'Ссылка']]
+    df = df[['№', 'Бренд', 'Артикул', 'Бренд_карточка', 'Артикул_карточка', 'Цена_Гиперавто_КнА', 'Дата и время', 'Выполнение запроса', 'Наличие', 'Наименование', 'Ссылка']]
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M')
     out = f"{OUTPUT_FILE_PREFIX}_{timestamp}.xlsx"
