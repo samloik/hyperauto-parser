@@ -174,6 +174,11 @@ class ParseStats:
         if self._alert_triggered:
             return
         
+        # Не срабатываем раньше чем после 5 запросов
+        min_requests_for_alert = 5
+        if self.total_items < min_requests_for_alert:
+            return
+
         if self.error_rate >= self.error_threshold:
             self._alert_triggered = True
             self._send_alert()

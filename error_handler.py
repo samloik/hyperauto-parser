@@ -81,8 +81,13 @@ class ErrorMetrics:
         if self.total_requests == 0:
             return
         
+        # Не срабатываем раньше чем после 5 запросов
+        min_requests_for_alert = 5
+        if self.total_requests < min_requests_for_alert:
+            return
+
         error_rate = (self.total_errors / self.total_requests) * 100
-        
+
         if error_rate >= self.error_threshold and not self.alert_triggered:
             self.alert_triggered = True
             self._send_alert(error_rate)
