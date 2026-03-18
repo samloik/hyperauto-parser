@@ -4153,5 +4153,44 @@ hyperauto-parser  | 2026-03-18 14:36:06 | INFO | ✓ Сайт https://hyperauto.
 
 =====
 
+привет ознакомся с кодом
+и предложи улучшения (пока без правок)
+
+=====
+
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+1. Критические проблемы
+
+a) Неправильная работа с селекторами (parser.py)
+В _parse_product_cards() используется query_selector/query_selector_all — это устаревший синтаксис. Следует использовать locator API:
+# Было (плохо)
+product_list = await self.page.query_selector('.product-list.product-list_row')
+
+# Стало (хорошо)
+product_list = self.page.locator('.product-list.product-list_row').first
+b) Утечка ресурсов в BrowserSession
+Если async_playwright() не инициализируется корректно, _playwright_context может остаться None, что вызовет ошибку при __aexit__
+
+article_upper = ' ' + article.upper()  - проверяет отсутствие других символов в артикуле, если есть лучший способ предложи к обсуждению
+
+=====
+
+
+создай и прогони тексты для  метод _validate_brand_article
+
+проверь на наличие символа перед искомым артикулом
+
+=====
+
+[+] фиксируем готовый парсер без ошибок для теста
+
+=====
+
+
+
+
+
 
 
