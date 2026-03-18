@@ -29,6 +29,10 @@ RUN if ! id -u appuser >/dev/null 2>&1; then \
 
 WORKDIR /app
 
+# Создаём необходимые папки
+RUN mkdir -p /app/logs /app/Errors /app/output && \
+    chown -R appuser:appgroup /app
+
 # Копируем установленные пакеты из builder stage
 COPY --from=builder /root/.local /home/appuser/.local
 
