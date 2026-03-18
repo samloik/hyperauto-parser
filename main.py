@@ -513,7 +513,16 @@ async def main_async():
                         html_filepath = errors_path / html_filename
                         with open(html_filepath, 'w', encoding='utf-8') as f:
                             f.write(html_content)
-                        logger.info(f"  → Сохранено: {html_filename}")
+                        
+                        # Сохраняем скриншот в JPG формате
+                        try:
+                            screenshot_filename = f"{position_num}-{brand}-{article}-{error_name}.jpg"
+                            screenshot_path = errors_path / screenshot_filename
+                            await page.screenshot(path=str(screenshot_path), type='jpeg', quality=80, full_page=True)
+                            logger.info(f"  → Сохранено: {html_filename} + {screenshot_filename}")
+                        except Exception as e:
+                            logger.warning(f"  ⚠ Не удалось сделать скриншот: {e}")
+                            logger.info(f"  → Сохранено: {html_filename}")
                         break
 
             await page.wait_for_timeout(int(DELAY * 1000))
