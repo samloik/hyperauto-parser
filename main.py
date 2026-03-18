@@ -23,6 +23,7 @@ from utils import (
     adjust_excel_column_widths,
 )
 from error_handler import error_metrics, save_error_report
+from utils import save_cookies
 
 
 async def main_async() -> None:
@@ -109,10 +110,15 @@ async def main_async() -> None:
             
             # Задержка между запросами
             await session.page.wait_for_timeout(int(config.DELAY * 1000))
-        
+
         total_elapsed = perf_counter() - total_start
         stats.total_time = total_elapsed
-    
+        
+        # Сохраняем обновлённую сессию cookies после завершения парсинга
+        logger.info("💾 Сохранение обновлённой сессии cookies...")
+        storage_state = await session.context.storage_state()
+        save_cookies(storage_state)
+
     # Создаём DataFrame из результатов
     df_results = pd.DataFrame(all_results)
     
