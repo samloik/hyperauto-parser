@@ -1,19 +1,69 @@
-FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy
+# ===========================================
+# Multi-stage Dockerfile для Hyperauto Parser
+# ===========================================
+
+# -------------------------------------------
+# Stage 1: Build stage
+# -------------------------------------------
+FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy AS builder
+
+WORKDIR /build
+
+# Копируем только зависимости сначала (для кэширования слоёв)
+COPY requirements.txt .
+
+# Устанавливаем зависимости
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# -------------------------------------------
+# Stage 2: Production stage
+# -------------------------------------------
+FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy AS production
+
+# Создаём non-root пользователя для безопасности
+RUN groupadd --gid 1000 appgroup && \
+    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
 
 WORKDIR /app
 
-# Копируем зависимости и устанавливаем их
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Копируем установленные пакеты из builder stage
+COPY --from=builder /root/.local /home/appuser/.local
 
 # Копируем код приложения
 COPY main.py ./
-COPY cookies.json ./
+COPY config.py ./
+COPY models.py ./
+COPY utils.py ./
+COPY browser.py ./
+COPY parser.py ./
+COPY error_handler.py ./
+COPY health_check.py ./
+COPY exceptions.py ./
 
-# Указываем путь к браузерам, которые уже установлены в образе
+# Копируем шаблон .env (опционально)
+COPY .env.example ./.env.example
+
+# Создаём пустой файл cookies.json если не существует
+RUN touch cookies.json || true
+
+# Устанавливаем права доступа для non-root пользователя
+RUN chown -R appuser:appgroup /app && \
+    chmod -R 755 /app
+
+# Переключаемся на non-root пользователя
+USER appuser
+
+# Добавляем .local/bin в PATH для установленных пакетов
+ENV PATH=/home/appuser/.local/bin:$PATH
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# Флаг для запуска в headless режиме
+
+# По умолчанию запускаем в headless режиме для Docker
 ENV DOCKER_ENV=1
+
+# Метаданные
+LABEL maintainer="hyperauto-parser"
+LABEL description="Парсер товаров с сайта hyperauto.ru"
+LABEL version="1.0"
 
 # Запуск приложения
 CMD ["python", "main.py"]

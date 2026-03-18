@@ -1,12 +1,34 @@
 services:
   hyperauto-parser:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: hyperauto-parser
     volumes:
-      - ./товары.xlsx:/app/товары.xlsx
+      # Монтируем входной файл с товарами
+      - ./товары.xlsx:/app/товары.xlsx:ro
+      # Монтируем cookies для сохранения сессии
       - ./cookies.json:/app/cookies.json
-      - ./:/app/ 
+      # Монтируем папку для логов
+      - ./logs:/app/logs
+      # Монтируем папку для ошибок
+      - ./Errors:/app/Errors
+      # Монтируем выходной файл (опционально)
+      - ./output:/app/output
     environment:
+      # Путь к браузерам Playwright
       - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+      # Headless режим для Docker
+      - DOCKER_ENV=1
+      # Переменные окружения из .env файла (опционально)
+      # Можно раскомментировать и изменить значения
+      # - CITY_SLUG=komsomolsk
+      # - DELAY=5.0
+      # - TIMEOUT=25000
+      # - ERROR_THRESHOLD=50.0
+    env_file:
+      - .env
     stdin_open: true
     tty: true
+    # Автоматическое удаление контейнера после остановки
+    # remove: true  # Закомментировано для сохранения логов

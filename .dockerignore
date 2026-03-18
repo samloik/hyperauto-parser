@@ -1,9 +1,53 @@
-pure_venv/
-__pycache__/
-*.pyc
-*.pyo
+# Git
 .git
 .gitignore
-*.md
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+pure_venv/
+*.egg-info/
+.eggs/
+
+# Тесты
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Логи и данные
+logs/
 *.log
-цены_гиперавто_*.xlsx
+Errors/
+*.xlsx
+*.json
+!cookies.json
+!.env.example
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Документация
+README.md
+docs.md
+instructions.txt
+
+# Временные файлы
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
