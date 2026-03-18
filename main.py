@@ -2,10 +2,17 @@
 import asyncio
 import pandas as pd
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from time import perf_counter
 from pathlib import Path
+from loguru import logger
+import sys
+
+# Настройка логгера
+logger.remove()  # Удаляем стандартный обработчик
+logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
+logger.add("logs-{time:YYYY-MM-DD-HH-mm-ss}.txt", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO", retention=timedelta(days=30))
 
 # ================= НАСТРОЙКИ =================
 INPUT_FILE = 'товары.xlsx'
@@ -15,6 +22,18 @@ DELAY = 5.0               # сек между товарами
 TIMEOUT = 25000           # ms
 COOKIES_FILE = 'cookies.json'  # файл с сессией (cookies)
 ERRORS_DIR = 'Errors'      # папка для сохранения HTML при ошибках
+
+def format_time(seconds):
+    """Форматирует время в часы:минуты:секунды сек"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{secs:02d} сек"
+    elif minutes > 0:
+        return f"{minutes}:{secs:02d} сек"
+    else:
+        return f"{secs} сек"
 
 
 async def get_price_async(page, brand: str, article: str) -> (list, str, int, int):
@@ -46,7 +65,7 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             try:
                 await page.wait_for_selector('.product-card, .catalog-item, article, [data-product-id], .price', timeout=15000)
             except PlaywrightTimeoutError:
-                print(f"    Таймаут ожидания карточек для {brand}/{article}")
+                logger.warning(f"    Таймаут ожидания карточек для {brand}/{article}")
                 html_content = await page.content()
                 return [(0.0, False, "таймаут ожидания карточек", "", html_content, "", "", "")], "таймаут", 0, 0
 
@@ -270,7 +289,7 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
                 return [(0.0, False, "элементы не найдены", "", html_content, "", "", "")], "элементы не найдены", 0, 0
 
         except Exception as e:
-            print(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
+            logger.error(f"    Ошибка при {brand} {article}: {str(e)[:120]}...")
             retry_count += 1
             if retry_count < max_retries:
                 await page.wait_for_timeout(3000)
@@ -289,42 +308,42 @@ async def main_async():
     # Определяем режим запуска (headless для Docker)
     headless = os.environ.get('DOCKER_ENV', '0') == '1'
 
-    print("Попытка запуска браузера Playwright...")
+    logger.info("Попытка запуска браузера Playwright...")
     try:
         async with async_playwright() as p:
-            print("Playwright инициализирован")
+            logger.info("Playwright инициализирован")
             browser = await p.chromium.launch(headless=headless, slow_mo=500)
-            print("Браузер запущен")
+            logger.info("Браузер запущен")
             # ... дальше контекст и страница
     except Exception as e:
-        print(f"Критическая ошибка Playwright: {type(e).__name__}: {str(e)}")
+        logger.error(f"Критическая ошибка Playwright: {type(e).__name__}: {str(e)}")
         import traceback
         traceback.print_exc()
 
 
-    print("=== Запуск парсера Гиперавто (Playwright) ===")
-    print(f"Текущая папка: {os.getcwd()}")
-    print(f"Ищем файл: {INPUT_FILE}")
-    
+    logger.info("=== Запуск парсера Гиперавто (Playwright) ===")
+    logger.info(f"Текущая папка: {os.getcwd()}")
+    logger.info(f"Ищем файл: {INPUT_FILE}")
+
     if not os.path.exists(INPUT_FILE):
-        print(f"ОШИБКА: файл {INPUT_FILE} НЕ НАЙДЕН в {os.getcwd()}")
-        print("Создайте файл с колонками 'Бренд' и 'Артикул'")
+        logger.error(f"ОШИБКА: файл {INPUT_FILE} НЕ НАЙДЕН в {os.getcwd()}")
+        logger.info("Создайте файл с колонками 'Бренд' и 'Артикул'")
         return
-    
-    print("Файл найден → читаем...")
+
+    logger.info("Файл найден → читаем...")
     try:
         df = pd.read_excel(INPUT_FILE)
-        print(f"Прочитано строк: {len(df)}")
-        print(df.head().to_string())
+        logger.info(f"Прочитано строк: {len(df)}")
+        logger.info(df.head().to_string())
     except Exception as e:
-        print(f"Ошибка чтения Excel: {e}")
+        logger.error(f"Ошибка чтения Excel: {e}")
         return
-    
+
     if 'Бренд' not in df.columns or 'Артикул' not in df.columns:
-        print("ОШИБКА: в файле нет колонок 'Бренд' и/или 'Артикул'")
+        logger.error("ОШИБКА: в файле нет колонок 'Бренд' и/или 'Артикул'")
         return
-    
-    print("Колонки в порядке → запускаем браузер...")
+
+    logger.info("Колонки в порядке → запускаем браузер...")
 
     df['Цена_Гиперавто_КнА'] = None
     df['Дата и время'] = datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -355,13 +374,13 @@ async def main_async():
                     if 'domain' in cookie:
                         cookie['domain'] = cookie['domain'].lstrip('http').lstrip('s').lstrip(':').lstrip('/')
                 storage_state = data
-            print(f"✓ Загружаем сессию из {COOKIES_FILE}")
+            logger.info(f"✓ Загружаем сессию из {COOKIES_FILE}")
         except Exception as e:
-            print(f"⚠ Ошибка загрузки {COOKIES_FILE}: {e}")
-            print("  Удалите файл и запустите заново для создания новой сессии")
+            logger.warning(f"⚠ Ошибка загрузки {COOKIES_FILE}: {e}")
+            logger.info("  Удалите файл и запустите заново для создания новой сессии")
     else:
-        print(f"⚠ Файл {COOKIES_FILE} не найден — сессия не будет загружена")
-        print("  После первого запуска (с ручным прохождением капчи) сессия сохранится автоматически")
+        logger.warning(f"⚠ Файл {COOKIES_FILE} не найден — сессия не будет загружена")
+        logger.info("  После первого запуска (с ручным прохождением капчи) сессия сохранится автоматически")
 
     # Определяем режим запуска (headless для Docker)
     headless = os.environ.get('DOCKER_ENV', '0') == '1'
@@ -384,14 +403,14 @@ async def main_async():
 
         # Если сессии не было — даём время пройти капчу и сохраняем
         if storage_state is None:
-            print("\n>>> Открой https://hyperauto.ru в этой вкладке и пройди капчу!")
-            print(">>> После этого нажми Enter в консоли...")
+            logger.info("\n>>> Открой https://hyperauto.ru в этой вкладке и пройди капчу!")
+            logger.info(">>> После этого нажми Enter в консоли...")
             input()
             await page.goto("https://hyperauto.ru/", wait_until="domcontentloaded")
             await page.wait_for_timeout(3000)
             await context.storage_state(path=COOKIES_FILE)
-            print(f"✓ Сессия сохранена в {COOKIES_FILE}")
-            print("  Следующие запуски пройдут без капчи!\n")
+            logger.info(f"✓ Сессия сохранена в {COOKIES_FILE}")
+            logger.info("  Следующие запуски пройдут без капчи!\n")
 
         total_start = perf_counter()
         times = []
@@ -466,14 +485,14 @@ async def main_async():
                     availability_display = availability[:20] if availability else ""
                     brand_display = item_brand[:10] if item_brand else ""
                     article_display = item_article[:20] if item_article else ""
-                    print(f"{prefix:<14} {brand_display:<10} | {article_display:<20} | {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
+                    logger.info(f"{prefix:<14} {brand_display:<10} | {article_display:<20} | {name_display:<25} | {price_display:>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                 else:
                     name_display = f"{brand}/{article}"[:25]
                     product_name_display = product_name[:70] if len(product_name) > 70 else product_name
                     availability_display = availability[:20] if availability else ""
                     brand_display = item_brand[:10] if item_brand else ""
                     article_display = item_article[:20] if item_article else ""
-                    print(f"{prefix:<14} {brand_display:<10} | {article_display:<20} | {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
+                    logger.info(f"{prefix:<14} {brand_display:<10} | {article_display:<20} | {name_display:<25} | {'✗':>10} | {elapsed:>6.1f} сек | {availability_display:<20} | {product_name_display}")
                     has_errors = True
 
             # Сохраняем HTML при ошибках (один файл на итерацию)
@@ -489,7 +508,7 @@ async def main_async():
                         html_filepath = errors_path / html_filename
                         with open(html_filepath, 'w', encoding='utf-8') as f:
                             f.write(html_content)
-                        print(f"  → Сохранено: {html_filename}")
+                        logger.info(f"  → Сохранено: {html_filename}")
                         break
 
             await page.wait_for_timeout(int(DELAY * 1000))
@@ -534,10 +553,10 @@ async def main_async():
         wb.save(out)
         wb.close()
     except Exception as e:
-        print(f"Warning: Could not adjust column widths: {e}")
+        logger.warning(f"Warning: Could not adjust column widths: {e}")
     
-    print(f"\nСохранено → {out}")
-    print(f"\n⏱ Всего: {total_elapsed:.1f} сек | Среднее на позицию: {avg_time:.1f} сек")
+    logger.info(f"\nСохранено → {out}")
+    logger.info(f"\n⏱ Всего: {format_time(total_elapsed)} | Среднее на позицию: {format_time(avg_time)}")
 
 
 if __name__ == "__main__":
