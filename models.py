@@ -10,7 +10,7 @@ from typing import Optional
 class Product:
     """
     Модель карточки товара.
-    
+
     Attributes:
         price: Цена товара (число).
         is_price: Флаг наличия цены (True если цена найдена).
@@ -29,12 +29,12 @@ class Product:
     item_brand: str = ""
     item_article: str = ""
     html_content: str = ""
-    
+
     @property
     def has_error(self) -> bool:
         """Проверяет, является ли результат ошибкой."""
         return not self.is_price and not self.product_name
-    
+
     def to_dict(self) -> dict:
         """Преобразует в словарь для DataFrame."""
         return {
@@ -51,7 +51,7 @@ class Product:
 class ParseResult:
     """
     Результат парсинга одной позиции (бренд + артикул).
-    
+
     Attributes:
         brand: Запрошенный бренд.
         article: Запрошенный артикул.
@@ -72,33 +72,33 @@ class ParseResult:
     elapsed_time: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
     url: str = ""
-    
+
     @property
     def has_errors(self) -> bool:
         """Проверяет, есть ли ошибки в результатах."""
         return self.error_message or any(p.has_error for p in self.products)
-    
+
     def to_excel_rows(self, row_number: int, total_len: int) -> list[dict]:
         """
         Преобразует результат в строки для Excel.
-        
+
         Args:
             row_number: Номер строки в исходном файле (0-based).
             total_len: Общее количество строк (для форматирования номера).
-            
+
         Returns:
             Список словарей для DataFrame.
         """
         rows = []
         total_width = len(str(total_len))
-        
+
         for idx, product in enumerate(self.products):
             # Формируем номер позиции
             if len(self.products) > 1:
                 prefix = f"[{row_number + 1:0{total_width}d}/{total_len}][{idx + 1}]"
             else:
                 prefix = f"[{row_number + 1:0{total_width}d}/{total_len}] "
-            
+
             row = {
                 '№': prefix,
                 'Бренд': self.brand,
@@ -115,7 +115,7 @@ class ParseResult:
                 'Ссылка': self.url,
             }
             rows.append(row)
-        
+
         return rows
 
 
@@ -123,7 +123,7 @@ class ParseResult:
 class ParseStats:
     """
     Статистика выполнения парсинга.
-    
+
     Attributes:
         total_items: Общее количество обработанных позиций.
         success_items: Количество успешных позиций.
@@ -139,26 +139,26 @@ class ParseStats:
     times: list[float] = field(default_factory=list)
     error_threshold: float = 50.0
     _alert_triggered: bool = False
-    
+
     @property
     def avg_time(self) -> float:
         """Среднее время выполнения запроса."""
         return sum(self.times) / len(self.times) if self.times else 0.0
-    
+
     @property
     def success_rate(self) -> float:
         """Процент успешных запросов."""
         if self.total_items == 0:
             return 0.0
         return (self.success_items / self.total_items) * 100
-    
+
     @property
     def error_rate(self) -> float:
         """Процент ошибок."""
         if self.total_items == 0:
             return 0.0
         return (self.error_items / self.total_items) * 100
-    
+
     def add_result(self, result: ParseResult) -> None:
         """Добавляет результат парсинга в статистику."""
         self.total_items += 1
@@ -168,12 +168,12 @@ class ParseStats:
             self._check_alert()
         else:
             self.success_items += 1
-    
+
     def _check_alert(self) -> None:
         """Проверяет порог ошибок и triggering алерт."""
         if self._alert_triggered:
             return
-        
+
         # Не срабатываем раньше чем после 5 запросов
         min_requests_for_alert = 5
         if self.total_items < min_requests_for_alert:
@@ -182,7 +182,7 @@ class ParseStats:
         if self.error_rate >= self.error_threshold:
             self._alert_triggered = True
             self._send_alert()
-    
+
     def _send_alert(self) -> None:
         """Отправляет алерт о высоком проценте ошибок."""
         from loguru import logger
@@ -190,11 +190,11 @@ class ParseStats:
             f"🚨 ALERT: Высокий процент ошибок! "
             f"{self.error_rate:.1f}% ({self.error_items}/{self.total_items})"
         )
-    
+
     def should_alert(self) -> bool:
         """Проверяет, был ли отправлен алерт."""
         return self._alert_triggered
-    
+
     def get_summary(self) -> dict:
         """Возвращает сводку по статистике."""
         return {

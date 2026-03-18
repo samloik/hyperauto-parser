@@ -3633,4 +3633,267 @@ hyperauto-parser  | [139/244]      NGK/LZFR6AI
 
 git switch -c feature/new-code
 
+====
+
+ознакомся с кодом и опиши что он делает
+
+предложи как по твоему улчшить код (пока без правок)
+
+
+=====
+
+
+
+Предложения по улучшению кода
+
+1. Архитектура и структура
+Разделить на модули: main.py (578 строк) → разбить на browser.py, parser.py, models.py, config.py, utils.py
+Вынести настройки в отдельный конфиг-файл (.env или config.yaml)
+Создать классы для инкапсуляции состояния (BrowserSession, Parser, Product)
+
+2. Обработка ошибок и логирование
+Добавить структурированное логирование (JSON format) для лучшего анализа
+Централизовать обработку ошибок вместо дублирования try/except в каждом месте
+Добавить метрики/алерты при большом проценте ошибок
+
+3. Надёжность парсинга
+Добавить явные ожидания (wait_for_selector) вместо фиксированных wait_for_timeout
+Использовать retry-декоратор вместо ручного retry_count в каждой функции
+Добавить health-check сайта перед запуском
+
+4. Производительность
+Параллелизация запросов через asyncio.Semaphore для одновременной обработки нескольких товаров
+Кеширование результатов для повторяющихся запросов
+Оптимизировать селекторы (некоторые слишком общие)
+
+5. Тестируемость
+Добавить юнит-тесты на функции парсинга (с моками Playwright)
+Интеграционные тесты с реальным сайтом (опционально)
+Фикстуры для тестов вместо пустой папки tests/
+
+6. Типизация и качество кода
+Добавить type hints для всех функций (сейчас частично)
+Использовать dataclass для результатов парсинга вместо кортежей
+Прогнать через linter (flake8, pylint, mypy)
+
+7. Конфигурация и развёртывание
+Вынести CITY_SLUG, DELAY, TIMEOUT в переменные окружения
+Добавить .env.example с шаблоном настроек
+Улучшить Dockerfile (multi-stage build, non-root user)
+
+8. Функциональные улучшения
+Прогресс-бар вместо логов в консоль (tqdm)
+Resume capability — возможность продолжить с места обрыва
+API для капчи — автоматическое прохождение через сервисы разгадывания
+Экспорт в CSV/JSON помимо Excel
+
+9. Безопасность
+Валидация cookies.json более строгая перед загрузкой
+Rate limiting — уважать robots.txt и не перегружать сайт
+User-Agent ротация для снижения вероятности блокировки
+
+10. Документация
+README с примерами входных/выходных данных
+Swagger/OpenAPI если планируется API
+CHANGELOG для версионирования
+Хочешь, чтобы я реализовал какие-то из этих улучшений?
+
+=== вывод ==== 
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+1. Архитектура и структура
+Разделить на модули: main.py (578 строк) → разбить на browser.py, parser.py, models.py, config.py, utils.py
+Вынести настройки в отдельный конфиг-файл (.env или config.yaml)
+Создать классы для инкапсуляции состояния (BrowserSession, Parser, Product)
+
+=====
+
+git add .
+git commit -m "первый коммит в новую ветку: 1. архитектура и структура - внедрение"
+git push -u origin feature/new-code
+# (-u = --set-upstream → запоминает связь ветка ←→ origin/имя-ветки)
+
+=====
+
+Attaching to hyperauto-parser
+hyperauto-parser  | 2026-03-18 11:16:28 | INFO | === Запуск парсера Гиперавто (Playwright) ===
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 195, in <module>
+hyperauto-parser  |     asyncio.run(main_async())
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+hyperauto-parser  |     return loop.run_until_complete(main)
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+hyperauto-parser  |     return future.result()
+hyperauto-parser  |   File "/app/main.py", line 33, in main_async
+hyperauto-parser  |     logger.info(f"Текущая папка: {config.INPUT_FILE.parent.resolve()}")
+hyperauto-parser  | AttributeError: 'str' object has no attribute 'parent'
+hyperauto-parser exited with code 1
+
+====
+
+
+hyperauto-parser  | 2026-03-18 11:20:27 | INFO |   Бренд Артикул
+hyperauto-parser  | 0   CTR  CB0234
+hyperauto-parser  | 1   CTR  CB0177
+hyperauto-parser  | 2026-03-18 11:20:27 | INFO | Колонки в порядке → запускаем браузер...
+hyperauto-parser  | 2026-03-18 11:20:27 | INFO | Попытка запуска браузера Playwright...
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 195, in <module>
+hyperauto-parser  |     asyncio.run(main_async())
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+hyperauto-parser  |     return loop.run_until_complete(main)
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+hyperauto-parser  |     return future.result()
+hyperauto-parser  |   File "/app/main.py", line 73, in main_async
+hyperauto-parser  |     async with BrowserSession() as session:
+hyperauto-parser  |   File "/app/browser.py", line 121, in __aenter__
+hyperauto-parser  |     await self.start()
+hyperauto-parser  |   File "/app/browser.py", line 43, in start
+hyperauto-parser  |     self.playwright = await async_playwright()
+hyperauto-parser  | TypeError: object PlaywrightContextManager can't be used in 'await' expression
+hyperauto-parser exited with code 1
+
+====
+
+префикс отображается не верно, верни как было
+
+сейчас:
+
+
+hyperauto-parser  | 2026-03-18 11:24:15 | INFO | [11:23:43]     CTR        | CB0234 (CBKK-8)      | CTR/CB0234                |   1,199.00 |   31.6 сек | Доставка: с 27 марта | Опора шаровая CTR, арт. CB0234 (CBKK-8)
+hyperauto-parser  | 2026-03-18 11:24:51 | INFO | [11:24:20][1]  CTR        | CB0177 (CBKH-12)     | CTR/CB0177                |   1,299.00 |   30.9 сек | Доставка: с 27 марта | Опора шаровая CTR, арт. CB0177 (CBKH-12)
+hyperauto-parser  | 2026-03-18 11:24:51 | INFO | [11:24:20][2]  CTR        | CB0177 (CBM-9)       | CTR/CB0177                |   1,099.00 |   30.9 сек | Доставка: с 30 марта | Опора шаровая CTR, арт. CB0177 (CBM-9)
+
+надо:
+
+
+hyperauto-parser  | 2026-03-18 11:24:15 | INFO | [1/2]     CTR        | CB0234 (CBKK-8)      | CTR/CB0234                |   1,199.00 |   31.6 сек | Доставка: с 27 марта | Опора шаровая CTR, арт. CB0234 (CBKK-8)
+hyperauto-parser  | 2026-03-18 11:24:51 | INFO | [2/2][1]  CTR        | CB0177 (CBKH-12)     | CTR/CB0177                |   1,299.00 |   30.9 сек | Доставка: с 27 марта | Опора шаровая CTR, арт. CB0177 (CBKH-12)
+hyperauto-parser  | 2026-03-18 11:24:51 | INFO | [2/2][2]  CTR        | CB0177 (CBM-9)       | CTR/CB0177                |   1,099.00 |   30.9 сек | Доставка: с 30 марта | Опора шаровая CTR, арт. CB0177 (CBM-9)
+
+поправь код
+
+
+=====
+а логику ты сохранил?
+
+[1/5]
+[21/77]
+[003/334]
+[12003/99334][1]
+[12003/99334][2]
+
+=====
+залогируй сохранение новых cookies после окончания парсинга
+есть такая логика?
+
+
+=====
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+2. Обработка ошибок и логирование
+Добавить структурированное логирование (JSON format) для лучшего анализа
+Централизовать обработку ошибок вместо дублирования try/except в каждом месте
+Добавить метрики/алерты при большом проценте ошибок
+
+=====
+
+hyperauto-parser  | 2026-03-18 11:55:54 | INFO | === Запуск парсера Гиперавто (Playwright) ===
+hyperauto-parser  | 2026-03-18 11:55:54 | INFO | Текущая папка: /app
+hyperauto-parser  | 2026-03-18 11:55:54 | INFO | Ищем файл: товары.xlsx
+hyperauto-parser  | 2026-03-18 11:55:54 | INFO | Файл найден → читаем...
+hyperauto-parser  | 2026-03-18 11:55:55 | INFO | Прочитано строк: 2
+hyperauto-parser  | 2026-03-18 11:55:55 | INFO |   Бренд Артикул
+hyperauto-parser  | 0   CTR  CB0234
+hyperauto-parser  | 1   CTR  CB0177
+hyperauto-parser  | 2026-03-18 11:55:55 | INFO | Колонки в порядке → запускаем браузер...
+hyperauto-parser  | 2026-03-18 11:55:55 | INFO | Попытка запуска браузера Playwright...
+hyperauto-parser  | 2026-03-18 11:55:56 | INFO | Playwright инициализирован
+hyperauto-parser  | 2026-03-18 11:55:56 | INFO | ✓ Загружаем сессию из cookies.json
+hyperauto-parser  | 2026-03-18 11:55:56 | INFO | Браузер запущен
+hyperauto-parser  | 2026-03-18 11:56:29 | INFO | [1/2]          CTR        | CB0234 (CBKK-8)      | CTR/CB0234                |   1,199.00 |   32.6 сек | Доставка: с 27 марта | Опора шаровая CTR, арт. CB0234 (CBKK-8)
+hyperauto-parser  | 2026-03-18 11:57:05 | INFO | [2/2][1]       CTR        | CB0177 (CBKH-12)     | CTR/CB0177                |   1,299.00 |   31.0 сек | Доставка: с 27 марта | Опора шаровая CTR, арт. CB0177 (CBKH-12)
+hyperauto-parser  | 2026-03-18 11:57:05 | INFO | [2/2][2]       CTR        | CB0177 (CBM-9)       | CTR/CB0177                |   1,099.00 |   31.0 сек | Доставка: с 30 марта | Опора шаровая CTR, арт. CB0177 (CBM-9)
+hyperauto-parser  | 2026-03-18 11:57:10 | INFO |
+hyperauto-parser  | Сохранено → цены_гиперавто_20260318_1157.xlsx
+hyperauto-parser  | 2026-03-18 11:57:10 | INFO |
+hyperauto-parser  | ⏱ Всего: 1:13 сек | Среднее на позицию: 31 сек
+hyperauto-parser  | 2026-03-18 11:57:10 | INFO | ✓ Успешно: 2/2 (100.0%)
+hyperauto-parser  | 2026-03-18 11:57:10 | INFO | 📊 Метрики ошибок: 0/2 (0.0%)
+hyperauto-parser exited with code 0
+
+где логирование и сохранение новых cookies после окончания парсинга?
+
+
+=====
+
+hyperauto-parser  | 2026-03-18 12:02:48 | INFO | Браузер запущен
+hyperauto-parser  | 2026-03-18 12:03:18 | ERROR | 🚨 ALERT: Высокий процент ошибок! 100.0% (1/1)
+hyperauto-parser  | 2026-03-18 12:03:18 | ERROR |   Ошибки по типам: {"ParseNoResultsError": 1}
+hyperauto-parser  | 2026-03-18 12:03:18 | ERROR |   Топ товаров с ошибками: {'NGK/LMAR8AI8': 1}
+hyperauto-parser  | 2026-03-18 12:03:18 | ERROR | 🚨 ALERT: Высокий процент ошибок! 100.0% (1/1)
+
+при первой ошибке сразу тревога, не логично
+поправь
+
+=====
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+3. Надёжность парсинга
+Добавить явные ожидания (wait_for_selector) вместо фиксированных wait_for_timeout
+Использовать retry-декоратор вместо ручного retry_count в каждой функции
+Добавить health-check сайта перед запуском
+
+=====
+
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO | === Запуск парсера Гиперавто (Playwright) ===
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO | Текущая папка: /app
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO | Ищем файл: товары.xlsx
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO | Файл найден → читаем...
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO | Прочитано строк: 2
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO |   Бренд Артикул
+hyperauto-parser  | 0   CTR  CB0234
+hyperauto-parser  | 1   CTR  CB0177
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO | Колонки в порядке → запускаем браузер...
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO | 🔍 Проверка доступности сайта...
+hyperauto-parser  | 2026-03-18 12:19:35 | INFO | 🔍 Проверка доступности сайта...
+hyperauto-parser  | 2026-03-18 12:19:36 | WARNING | ⚠ Сайт вернул статус 400
+hyperauto-parser  | 2026-03-18 12:19:36 | ERROR |   Основная проверка не пройдена: Сайт вернул статус 400
+hyperauto-parser  | 2026-03-18 12:19:36 | ERROR | ✗ Сайт недоступен. Запуск парсера отменён.
+hyperauto-parser exited with code 0
+alex@alex-pc:~/hyperauto-parser$
+
+парсер перестал работать
+
+пересмотри предыдущие правки
+
+
+=====
+# ---4. Производительность  - пропустили
+=====
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+5. Тестируемость
+Добавить юнит-тесты на функции парсинга (с моками Playwright)
+Фикстуры для тестов вместо пустой папки tests/
+
+
+=====
+
+сделать закрепление областей в выходном excel файле чтобы верхняя строка с наименованиями колонок не прокручивалась при просмотре
+
+=====
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+6. Типизация и качество кода
+Добавить type hints для всех функций (сейчас частично)
+Использовать dataclass для результатов парсинга вместо кортежей
+Прогнать через linter (flake8, pylint, mypy)
+
+=====
 

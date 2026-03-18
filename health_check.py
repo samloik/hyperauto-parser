@@ -48,42 +48,53 @@ async def check_site_health(
                     timeout=aiohttp.ClientTimeout(total=timeout),
                     allow_redirects=True
                 ) as response:
-                    # 400 может быть из-за отсутствия заголовков — пробуем ещё раз
+                    # 400 может быть из-за отсутствия заголовков — пробуем ещё
+                    # раз
                     if response.status == 400:
-                        logger.warning(f"⚠ Сайт вернул 400, пробуем ещё раз...")
+                        logger.warning(
+                            f"⚠ Сайт вернул 400, пробуем ещё раз...")
                         await asyncio.sleep(1)
                         continue
-                    
+
                     if response.status == 200:
-                        logger.info(f"✓ Сайт {url} доступен (статус: {response.status})")
+                        logger.info(
+                            f"✓ Сайт {url} доступен (статус: {
+                                response.status})")
                         return True, f"OK (статус: {response.status})"
                     else:
                         msg = f"Сайт вернул статус {response.status}"
                         logger.warning(f"⚠ {msg}")
                         return False, msg
-                        
+
         except asyncio.TimeoutError as e:
             last_error = e
-            logger.warning(f"Попытка {attempt}/{max_retries}: таймаут подключения к {url}")
-            
+            logger.warning(
+                f"Попытка {attempt}/{max_retries}: таймаут подключения к {url}")
+
         except aiohttp.ClientError as e:
             last_error = e
-            logger.warning(f"Попытка {attempt}/{max_retries}: ошибка подключения к {url}: {str(e)[:80]}")
-            
+            logger.warning(
+                f"Попытка {attempt}/{max_retries}: ошибка подключения к {url}: {str(e)[:80]}")
+
         except Exception as e:
             last_error = e
-            logger.warning(f"Попытка {attempt}/{max_retries}: непредвиденная ошибка: {str(e)[:80]}")
-        
+            logger.warning(
+                f"Попытка {attempt}/{max_retries}: непредвиденная ошибка: {str(e)[:80]}")
+
         if attempt < max_retries:
             await asyncio.sleep(2)  # Пауза между попытками
-    
+
     # Все попытки исчерпаны
     error_msg = f"Сайт {url} недоступен после {max_retries} попыток"
     logger.error(f"✗ {error_msg}")
-    
+
     if last_error:
-        logger.error(f"  Последняя ошибка: {last_error.__class__.__name__}: {str(last_error)[:100]}")
-    
+        logger.error(
+            f"  Последняя ошибка: {
+                last_error.__class__.__name__}: {
+                str(last_error)[
+                    :100]}")
+
     return False, error_msg
 
 
@@ -124,21 +135,24 @@ async def check_search_availability(
                     )
 
                     if has_search_results:
-                        logger.info(f"✓ Поиск доступен (статус: {response.status})")
+                        logger.info(
+                            f"✓ Поиск доступен (статус: {
+                                response.status})")
                         return True, f"OK (статус: {response.status})"
                     else:
-                        logger.warning("⚠ Страница поиска не содержит ожидаемых элементов")
+                        logger.warning(
+                            "⚠ Страница поиска не содержит ожидаемых элементов")
                         return False, "Страница поиска не содержит ожидаемых элементов"
                 else:
                     msg = f"Поиск вернул статус {response.status}"
                     logger.warning(f"⚠ {msg}")
                     return False, msg
-                    
+
     except asyncio.TimeoutError:
         msg = f"Таймаут проверки поиска: {search_url}"
         logger.error(f"✗ {msg}")
         return False, msg
-        
+
     except aiohttp.ClientError as e:
         msg = f"Ошибка проверки поиска: {str(e)[:100]}"
         logger.error(f"✗ {msg}")
@@ -166,10 +180,10 @@ async def full_health_check() -> bool:
         if not search_ok:
             logger.error(f"  Проверка поиска не пройдена: {search_msg}")
             return False
-        
+
         logger.info("✓ Все проверки пройдены успешно")
         return True
-        
+
     except Exception as e:
         logger.error(f"  Ошибка проверки: {e}")
         return False

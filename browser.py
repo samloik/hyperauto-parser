@@ -43,20 +43,20 @@ class BrowserSession:
 
         self._playwright_context = async_playwright()
         self.playwright = await self._playwright_context.__aenter__()
-        
+
         logger.info("Playwright инициализирован")
-        
+
         # Загружаем cookies если есть
         storage_state = load_cookies()
         self._has_session = storage_state is not None
-        
+
         # Запускаем браузер
         self.browser = await self.playwright.chromium.launch(
             headless=config.HEADLESS,
             slow_mo=500
         )
         logger.info("Браузер запущен")
-        
+
         # Создаём контекст
         self.context = await self.browser.new_context(
             storage_state=storage_state,
@@ -68,24 +68,25 @@ class BrowserSession:
             locale=config.LOCALE,
             timezone_id=config.TIMEZONE_ID,
         )
-        
+
         # Создаём страницу
         self.page = await self.context.new_page()
-        
+
         # Обход детектов ботов
         await self.page.add_init_script("""
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
             });
         """)
-        
+
         # Если сессии не было — даём время пройти капчу
         if not self._has_session:
             await self._handle_captcha()
-    
+
     async def _handle_captcha(self) -> None:
         """Обрабатывает первое прохождение капчи."""
-        logger.info("\n>>> Открой https://hyperauto.ru в этой вкладке и пройди капчу!")
+        logger.info(
+            "\n>>> Открой https://hyperauto.ru в этой вкладке и пройди капчу!")
         logger.info(">>> После этого нажми Enter в консоли...")
         input()
 
@@ -99,7 +100,7 @@ class BrowserSession:
         storage_state = await self.context.storage_state()
         save_cookies(storage_state)
         logger.info("  Следующие запуски пройдут без капчи!\n")
-    
+
     async def close(self) -> None:
         """Закрывает браузер и очищает ресурсы."""
         if self.browser:
@@ -107,19 +108,19 @@ class BrowserSession:
 
         if self.playwright:
             await self.playwright.stop()
-        
+
         if self._playwright_context:
             await self._playwright_context.__aexit__(None, None, None)
-    
+
     async def __aenter__(self) -> 'BrowserSession':
         """Асинхронный контекстный менеджер (вход)."""
         await self.start()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Асинхронный контекстный менеджер (выход)."""
         await self.close()
-    
+
     @property
     def has_session(self) -> bool:
         """Проверяет, была ли загружена существующая сессия."""
