@@ -38,6 +38,9 @@ async def check_site_health(
     Returns:
         Кортеж (успех, сообщение).
     """
+    # Небольшая задержка перед первым запросом для избежания rate limiting
+    await asyncio.sleep(1)
+    
     last_error: Optional[Exception] = None
 
     for attempt in range(1, max_retries + 1):

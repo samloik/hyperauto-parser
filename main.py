@@ -69,7 +69,6 @@ async def main_async() -> None:
     clear_errors_dir()
 
     # Health-check сайта перед запуском
-    logger.info("🔍 Проверка доступности сайта...")
     try:
         health_ok = await full_health_check()
         if not health_ok:
