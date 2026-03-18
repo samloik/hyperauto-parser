@@ -20,6 +20,7 @@ COPY models.py ./
 COPY utils.py ./
 COPY browser.py ./
 COPY parser.py ./
+COPY card_parser.py ./
 COPY error_handler.py ./
 COPY health_check.py ./
 COPY exceptions.py ./
