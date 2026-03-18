@@ -117,7 +117,7 @@ class BrowserManager:
         Args:
             timeout: Время ожидания в мс.
         """
-        await self.page.wait_for_timeout(timeout or get_random_delay())
+        await self.page.wait_for_timeout(timeout or utils.get_random_delay())
 
     async def close(self) -> None:
         """
