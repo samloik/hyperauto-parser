@@ -1,6 +1,7 @@
 """
 Централизованная обработка ошибок для парсера Hyperauto.
 """
+import asyncio
 import json
 from datetime import datetime
 from functools import wraps
@@ -11,6 +12,60 @@ from loguru import logger
 
 from config import config
 from exceptions import ParserError
+
+
+def retry_async(
+    max_retries: int = 3,
+    delay: float = 3.0,
+    exceptions: tuple = (Exception,),
+    logger_func: Optional[Callable] = None
+):
+    """
+    Декоратор для автоматических повторных попыток асинхронных функций.
+    
+    Args:
+        max_retries: Максимальное количество попыток.
+        delay: Задержка между попытками (секунды).
+        exceptions: Кортеж исключений для обработки.
+        logger_func: Функция для логирования (по умолчанию logger.warning).
+        
+    Returns:
+        Декоратор для асинхронных функций.
+        
+    Пример:
+        @retry_async(max_retries=3, delay=2.0)
+        async def fetch_data():
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            last_exception = None
+            log_func = logger_func or logger.warning
+            
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    if attempt < max_retries:
+                        log_func(
+                            f"Попытка {attempt}/{max_retries} не удалась: "
+                            f"{func.__name__}: {str(e)[:100]}... "
+                            f"(повтор через {delay} сек)"
+                        )
+                        await asyncio.sleep(delay)
+                    else:
+                        log_func(
+                            f"Все {max_retries} попыток исчерпаны для {func.__name__}"
+                        )
+            
+            # Должны выбросить последнее исключение
+            if last_exception:
+                raise last_exception
+        
+        return wrapper
+    return decorator
 
 
 class ErrorMetrics:

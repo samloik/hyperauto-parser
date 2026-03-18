@@ -10,7 +10,7 @@ from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from config import config
 from models import Product, ParseResult
 from utils import logger
-from error_handler import handle_parse_errors, error_metrics, log_error_json
+from error_handler import handle_parse_errors, error_metrics, log_error_json, retry_async
 from exceptions import ParserTimeoutError, ParserError
 
 
@@ -26,6 +26,11 @@ class Parser:
         self.page = page
 
     @handle_parse_errors
+    @retry_async(
+        max_retries=config.MAX_RETRIES,
+        delay=config.RETRY_DELAY,
+        exceptions=(PlaywrightTimeoutError, Exception)
+    )
     async def parse_product(
         self,
         brand: str,
@@ -33,6 +38,7 @@ class Parser:
     ) -> ParseResult:
         """
         Парсит информацию о товаре по бренду и артикулу.
+        Использует retry-декоратор для автоматических повторных попыток.
 
         Args:
             brand: Бренд товара.
@@ -47,118 +53,69 @@ class Parser:
             timestamp=datetime.now()
         )
 
-        max_retries = config.MAX_RETRIES
-        retry_count = 0
-
-        while retry_count < max_retries:
-            try:
-                # Формируем URL поиска
-                query = f"{brand}/{article}".strip()
-                search_url = (
-                    f"{config.BASE_URL}/{config.CITY_SLUG}/search/{query.replace(' ', '%20')}/"
-                )
-                result.url = search_url
-
-                # Переходим на страницу
-                await self.page.goto(
-                    search_url,
-                    wait_until="domcontentloaded",
-                    timeout=config.TIMEOUT
-                )
-
-                # Рандомизированная задержка
-                delay_ms = 2000 + int(config.DELAY * 1000 * 0.3 * random.random())
-                await self.page.wait_for_timeout(delay_ms)
-
-                # Закрываем попапы/куки
-                await self._close_popups()
-
-                # Ждём появления товаров
-                products_found = await self._wait_for_products()
-                if not products_found:
-                    html_content = await self.page.content()
-                    result.products.append(Product(
-                        price_text="таймаут ожидания карточек",
-                        html_content=html_content
-                    ))
-                    result.error_message = "таймаут"
-                    # Записываем в метрики
-                    error_metrics.record_error(
-                        error_type="ParserTimeoutError",
-                        brand=brand,
-                        article=article
-                    )
-                    return result
-
-                # Парсим карточки товаров
-                total_items_ref = {'value': 0}
-                products = await self._parse_product_cards(brand, article, total_items_ref)
-                result.total_items = total_items_ref['value']
-
-                if products:
-                    result.products = products
-                    result.matched_items = len(products)
-                    # Записываем успех в метрики
-                    error_metrics.record_success()
-                    return result
-                else:
-                    # Нет подходящих карточек
-                    html_content = await self.page.content()
-                    result.products.append(Product(
-                        price_text="элементы не найдены",
-                        html_content=html_content
-                    ))
-                    result.error_message = "элементы не найдены"
-                    error_metrics.record_error(
-                        error_type="ParseNoResultsError",
-                        brand=brand,
-                        article=article
-                    )
-                    return result
-                    
-            except Exception as e:
-                logger.error(
-                    f"    Ошибка при {brand} {article}: {str(e)[:120]}..."
-                )
-                retry_count += 1
-
-                if retry_count < max_retries:
-                    await self.page.wait_for_timeout(int(config.RETRY_DELAY * 1000))
-                    continue
-
-                # Все попытки исчерпаны
-                try:
-                    html_content = await self.page.content()
-                except:
-                    html_content = "<html><body>Не удалось получить HTML</body></html>"
-
-                result.products.append(Product(
-                    price_text=f"ошибка: {str(e)[:50]}",
-                    html_content=html_content
-                ))
-                result.error_message = f"ошибка: {str(e)[:50]}"
-                
-                # Логируем в JSON и записываем в метрики
-                log_error_json(e, brand, article, {"retry_count": retry_count})
-                error_metrics.record_error(
-                    error_type=e.__class__.__name__,
-                    brand=brand,
-                    article=article,
-                    retry_count=retry_count
-                )
-                return result
-
-        # Превышено число попыток
-        result.products.append(Product(
-            price_text="превышено число попыток"
-        ))
-        result.error_message = "превышено число попыток"
-        error_metrics.record_error(
-            error_type="MaxRetriesExceeded",
-            brand=brand,
-            article=article
+        # Формируем URL поиска
+        query = f"{brand}/{article}".strip()
+        search_url = (
+            f"{config.BASE_URL}/{config.CITY_SLUG}/search/{query.replace(' ', '%20')}/"
         )
-        return result
+        result.url = search_url
+
+        # Переходим на страницу с явным ожиданием domcontentloaded
+        await self.page.goto(
+            search_url,
+            wait_until="domcontentloaded",
+            timeout=config.TIMEOUT
+        )
+
+        # Рандомизированная задержка (2-2.5 сек)
+        delay_ms = 2000 + int(config.DELAY * 1000 * 0.3 * random.random())
+        await self.page.wait_for_timeout(delay_ms)
+
+        # Закрываем попапы/куки
+        await self._close_popups()
+
+        # Ждём появления товаров с явными ожиданиями
+        products_found = await self._wait_for_products()
+        if not products_found:
+            html_content = await self.page.content()
+            result.products.append(Product(
+                price_text="таймаут ожидания карточек",
+                html_content=html_content
+            ))
+            result.error_message = "таймаут"
+            # Записываем в метрики
+            error_metrics.record_error(
+                error_type="ParserTimeoutError",
+                brand=brand,
+                article=article
+            )
+            return result
+
+        # Парсим карточки товаров
+        total_items_ref = {'value': 0}
+        products = await self._parse_product_cards(brand, article, total_items_ref)
+        result.total_items = total_items_ref['value']
+
+        if products:
+            result.products = products
+            result.matched_items = len(products)
+            # Записываем успех в метрики
+            error_metrics.record_success()
+            return result
+        else:
+            # Нет подходящих карточек
+            html_content = await self.page.content()
+            result.products.append(Product(
+                price_text="элементы не найдены",
+                html_content=html_content
+            ))
+            result.error_message = "элементы не найдены"
+            error_metrics.record_error(
+                error_type="ParseNoResultsError",
+                brand=brand,
+                article=article
+            )
+            return result
     
     async def _close_popups(self) -> None:
         """Пытается закрыть попапы и cookie-баннеры."""
@@ -172,21 +129,44 @@ class Parser:
     
     async def _wait_for_products(self) -> bool:
         """
-        Ждёт появления карточек товаров.
+        Ждёт появления карточек товаров с использованием явных ожиданий.
         
         Returns:
             True если карточки найдены, False если таймаут.
         """
+        # Селекторы для поиска товаров в порядке приоритета
+        selectors = [
+            '.product-list__item',  # Основной селектор
+            '.product-card',
+            '.catalog-item',
+            'article[class*="product"]',
+            '[data-product-id]',
+        ]
+        
+        for selector in selectors:
+            try:
+                await self.page.wait_for_selector(
+                    selector,
+                    timeout=config.PAGE_LOAD_TIMEOUT
+                )
+                logger.debug(f"  Найден товар по селектору: {selector}")
+                return True
+            except PlaywrightTimeoutError:
+                continue
+        
+        # Проверяем наличие сообщения "Ничего не найдено"
         try:
             await self.page.wait_for_selector(
-                '.product-card, .catalog-item, article, '
-                '[data-product-id], .price',
-                timeout=config.PAGE_LOAD_TIMEOUT
+                ':has-text("ничего не найдено"), :has-text("Нет товаров"), .empty-results',
+                timeout=5000
             )
-            return True
+            logger.warning("  Получено сообщение 'Ничего не найдено'")
+            return True  # Это не ошибка, просто нет товаров
         except PlaywrightTimeoutError:
-            logger.warning("    Таймаут ожидания карточек")
-            return False
+            pass
+        
+        logger.warning("    Таймаут ожидания карточек")
+        return False
     
     async def _parse_product_cards(
         self,
