@@ -148,23 +148,28 @@ async def check_search_availability(
 async def full_health_check() -> bool:
     """
     Полная проверка здоровья перед запуском парсера.
-    
+
     Returns:
         True если все проверки пройдены, False иначе.
     """
     logger.info("🔍 Проверка доступности сайта...")
-    
-    # Проверка основной страницы
-    site_ok, site_msg = await check_site_health()
-    if not site_ok:
-        logger.error(f"  Основная проверка не пройдена: {site_msg}")
+
+    try:
+        # Проверка основной страницы
+        site_ok, site_msg = await check_site_health()
+        if not site_ok:
+            logger.error(f"  Основная проверка не пройдена: {site_msg}")
+            return False
+
+        # Проверка поиска
+        search_ok, search_msg = await check_search_availability()
+        if not search_ok:
+            logger.error(f"  Проверка поиска не пройдена: {search_msg}")
+            return False
+        
+        logger.info("✓ Все проверки пройдены успешно")
+        return True
+        
+    except Exception as e:
+        logger.error(f"  Ошибка проверки: {e}")
         return False
-    
-    # Проверка поиска
-    search_ok, search_msg = await check_search_availability()
-    if not search_ok:
-        logger.error(f"  Проверка поиска не пройдена: {search_msg}")
-        return False
-    
-    logger.info("✓ Все проверки пройдены успешно")
-    return True

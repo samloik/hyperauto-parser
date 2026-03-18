@@ -147,10 +147,15 @@ async def main_async() -> None:
     output_file = f"{config.OUTPUT_FILE_PREFIX}_{timestamp}.xlsx"
     df_results.to_excel(output_file, index=False)
     
-    # Настраиваем ширину колонок
+    # Настраиваем ширину колонок и закрепляем шапку
     try:
         from openpyxl import load_workbook
         wb = load_workbook(output_file)
+        ws = wb.active
+        
+        # Закрепляем первую строку (шапку)
+        ws.freeze_panes = 'A2'
+        
         adjust_excel_column_widths(wb, df_results)
         wb.save(output_file)
         wb.close()
