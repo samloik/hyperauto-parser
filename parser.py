@@ -210,7 +210,7 @@ class ProductParser:
         product_name = await self._extract_product_name(item)
         item_brand, item_article = await self._extract_brand_article(item)
         availability = await self._extract_availability(item)
-        price, has_price, price_text = self._extract_price(item)
+        price, has_price, price_text = await self._extract_price(item)
 
         return Product(
             price=price,
@@ -301,7 +301,7 @@ class ProductParser:
 
         return ""
 
-    def _extract_price(self, item) -> tuple[float, bool, str]:
+    async def _extract_price(self, item) -> tuple[float, bool, str]:
         """
         Извлекает цену из карточки товара.
 
@@ -309,17 +309,17 @@ class ProductParser:
             Кортеж (цена, есть_цена, текст_цены).
         """
         # Приоритет 1: .price.price_big.price_green
-        price_elements = item.query_selector_all(config.SELECTORS['price_green'])
+        price_elements = await item.query_selector_all(config.SELECTORS['price_green'])
         for el in price_elements:
-            text = el.inner_text().strip()
+            text = await el.inner_text()
             price_val = self._parse_price_text(text)
             if price_val is not None:
                 return price_val, True, text.strip()
 
         # Приоритет 2: .product-price-new__price_main
-        price_elements = item.query_selector_all(config.SELECTORS['price_main'])
+        price_elements = await item.query_selector_all(config.SELECTORS['price_main'])
         for el in price_elements:
-            text = el.inner_text().strip()
+            text = await el.inner_text()
             price_val = self._parse_price_text(text)
             if price_val is not None:
                 return price_val, True, text.strip()
