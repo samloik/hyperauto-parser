@@ -47,6 +47,9 @@ class Config:
     # Попытки
     MAX_RETRIES: int = field(default_factory=lambda: int(os.getenv('MAX_RETRIES', '3')))
 
+    # Параллелизм
+    MAX_CONCURRENT_REQUESTS: int = field(default_factory=lambda: int(os.getenv('MAX_CONCURRENT_REQUESTS', '1')))
+
     # Браузер
     HEADLESS: bool = field(default_factory=lambda: os.getenv('DOCKER_ENV', '0') == '1')
     VIEWPORT_WIDTH: int = field(default_factory=lambda: int(os.getenv('VIEWPORT_WIDTH', '1280')))

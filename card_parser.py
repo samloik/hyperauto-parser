@@ -102,6 +102,7 @@ class ProductCardParser:
     async def _parse_single_card(self, item: Locator) -> Optional[Product]:
         """
         Парсит одну карточку товара.
+        Извлекает все данные за один проход через evaluate для оптимизации.
 
         Args:
             item: Локатор карточки товара.
@@ -111,14 +112,100 @@ class ProductCardParser:
         """
         product = Product()
 
-        product.product_name = await self._extract_product_name(item)
-        product.item_brand, product.item_article = (
-            await self._extract_brand_article(item)
-        )
-        product.availability = await self._extract_availability(item)
-        product.price, product.price_text, product.is_price = (
-            await self._extract_price(item)
-        )
+        # Извлекаем все данные за один проход через evaluate
+        data = await item.evaluate('''
+            (el) => {
+                const result = {
+                    product_name: "",
+                    brand: "",
+                    article: "",
+                    availability: "",
+                    price_text: ""
+                };
+                
+                // Извлекаем наименование из ссылки на продукт
+                const productLink = el.querySelector('a[href*="/product/"]');
+                if (productLink) {
+                    result.product_name = productLink.getAttribute('title') || productLink.textContent.trim();
+                }
+                
+                // Извлекаем бренд и артикул из dotted-list
+                const dottedItems = el.querySelectorAll('.dotted-list__item');
+                dottedItems.forEach(item => {
+                    const title = item.getAttribute('title');
+                    const valueEl = item.querySelector('.dotted-list__item-value');
+                    if (valueEl) {
+                        const value = valueEl.textContent.trim();
+                        if (title === 'Бренд') {
+                            result.brand = value;
+                        } else if (title === 'Артикул') {
+                            result.article = value;
+                        }
+                    }
+                });
+                
+                // Извлекаем наличие (В наличии или доставка)
+                const links = el.querySelectorAll('a');
+                for (const link of links) {
+                    const bElement = link.querySelector('b');
+                    if (bElement) {
+                        const bText = bElement.textContent;
+                        if (bText.includes('В наличии') || bText.toLowerCase().includes('на складе')) {
+                            result.availability = bText.split(' ').filter(s => s.trim()).join(' ');
+                            break;
+                        }
+                    }
+                    const linkText = link.textContent;
+                    if (linkText.includes('В наличии') || linkText.toLowerCase().includes('на складе')) {
+                        result.availability = linkText.split(' ').filter(s => s.trim()).join(' ');
+                        break;
+                    }
+                }
+                
+                // Если не нашли "В наличии", ищем доставку
+                if (!result.availability) {
+                    const deliveryBlocks = el.querySelectorAll('.block-delivery__variant-main');
+                    for (const block of deliveryBlocks) {
+                        const label = block.querySelector('b.mr-4');
+                        if (label && label.textContent.includes('Доставка')) {
+                            let sibling = block.nextElementSibling;
+                            while (sibling) {
+                                const next_b = sibling.querySelector('b');
+                                if (next_b && next_b.textContent.trim()) {
+                                    result.availability = 'Доставка: ' + next_b.textContent.trim();
+                                    break;
+                                }
+                                sibling = sibling.nextElementSibling;
+                            }
+                            if (result.availability) break;
+                        }
+                    }
+                }
+                
+                // Извлекаем цену (приоритет: .price.price_big.price_green, затем .product-price-new__price_main)
+                const priceGreen = el.querySelector('.price.price_big.price_green');
+                if (priceGreen) {
+                    result.price_text = priceGreen.textContent.trim();
+                } else {
+                    const priceMain = el.querySelector('.product-price-new__price_main');
+                    if (priceMain) {
+                        result.price_text = priceMain.textContent.trim();
+                    }
+                }
+                
+                return result;
+            }
+        ''')
+        
+        product.product_name = data.get('product_name', '') or ""
+        product.item_brand = data.get('brand', '') or ""
+        product.item_article = data.get('article', '') or ""
+        product.availability = data.get('availability', '') or ""
+        
+        # Парсим цену
+        price_text = data.get('price_text', '') or ""
+        product.price_text = price_text
+        product.price, product.is_price = self._parse_price_text(price_text)
 
         return product
 

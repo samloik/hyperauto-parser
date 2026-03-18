@@ -140,7 +140,7 @@ class Parser:
         )
 
         # Рандомизированная задержка (2-2.5 сек)
-        delay_ms = 2000 + int(config.DELAY * 1000 * 0.3 * random.random())
+        delay_ms = random.uniform(2000, 2500)
         await self.page.wait_for_timeout(delay_ms)
 
         # Закрываем попапы/куки

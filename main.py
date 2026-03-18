@@ -72,6 +72,33 @@ async def main_async() -> None:
     stats = ParseStats(error_threshold=config.ERROR_THRESHOLD)
     all_results = []
 
+    # Вспомогательная функция для парсинга одного товара
+    async def _parse_and_log(idx, row, brand, article):
+        """Парсит один товар и возвращает список строк для Excel."""
+        start = perf_counter()
+        result = await parser.parse_product(brand, article)
+        result.elapsed_time = perf_counter() - start
+        stats.add_result(result)
+        rows = result.to_excel_rows(idx, total_len)
+        _log_result(result, idx + 1, total_len)
+        
+        # Сохраняем ошибки
+        if result.has_errors:
+            html_file, screenshot_file = await save_error_files(
+                session.page, result, idx + 1
+            )
+            if html_file:
+                if screenshot_file:
+                    logger.info(f"  → Сохранено: {html_file} + {screenshot_file}")
+                else:
+                    logger.info(f"  → Сохранено: {html_file}")
+        
+        # Задержка (только в последовательном режиме)
+        if config.MAX_CONCURRENT_REQUESTS <= 1:
+            await session.page.wait_for_timeout(int(config.DELAY * 1000))
+        
+        return rows
+
     # Запускаем браузер
     async with BrowserSession() as session:
         parser = Parser(session.page)
@@ -79,39 +106,35 @@ async def main_async() -> None:
         total_start = perf_counter()
         total_len = len(df)
 
-        for idx, row in df.iterrows():
-            brand = str(row['Бренд']).strip()
-            article = str(row['Артикул']).strip()
-            start = perf_counter()
-
-            # Парсим товар
-            result = await parser.parse_product(brand, article)
-            result.elapsed_time = perf_counter() - start
-
-            # Обновляем статистику
-            stats.add_result(result)
-
-            # Преобразуем в строки для Excel
-            rows = result.to_excel_rows(idx, total_len)
-            all_results.extend(rows)
-
-            # Вывод на экран
-            _log_result(result, idx + 1, total_len)
-
-            # Сохраняем ошибки
-            if result.has_errors:
-                html_file, screenshot_file = await save_error_files(
-                    session.page, result, idx + 1
-                )
-                if html_file:
-                    if screenshot_file:
-                        logger.info(
-                            f"  → Сохранено: {html_file} + {screenshot_file}")
-                    else:
-                        logger.info(f"  → Сохранено: {html_file}")
-
-            # Задержка между запросами
-            await session.page.wait_for_timeout(int(config.DELAY * 1000))
+        # Создаём semaphore для ограничения параллелизма
+        max_concurrent = config.MAX_CONCURRENT_REQUESTS
+        if max_concurrent > 1:
+            # Параллельная обработка
+            logger.info(f"🚀 Параллельная обработка: {max_concurrent} потока")
+            semaphore = asyncio.Semaphore(max_concurrent)
+            
+            async def parse_with_semaphore(idx, row, brand, article):
+                async with semaphore:
+                    return await _parse_and_log(idx, row, brand, article)
+            
+            # Создаём задачи для всех товаров
+            tasks = []
+            for idx, row in df.iterrows():
+                brand = str(row['Бренд']).strip()
+                article = str(row['Артикул']).strip()
+                tasks.append(parse_with_semaphore(idx, row, brand, article))
+            
+            # Запускаем все задачи параллельно
+            results = await asyncio.gather(*tasks)
+            for result_list in results:
+                all_results.extend(result_list)
+        else:
+            # Последовательная обработка (режим по умолчанию)
+            for idx, row in df.iterrows():
+                brand = str(row['Бренд']).strip()
+                article = str(row['Артикул']).strip()
+                result_list = await _parse_and_log(idx, row, brand, article)
+                all_results.extend(result_list)
 
         total_elapsed = perf_counter() - total_start
         stats.total_time = total_elapsed
