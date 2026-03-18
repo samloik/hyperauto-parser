@@ -1,11 +1,16 @@
 """
 Модуль парсинга товаров с сайта Hyperauto.
 """
+import re
 import random
 from datetime import datetime
 from typing import Optional
 
-from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import (
+    Locator,
+    Page,
+    TimeoutError as PlaywrightTimeoutError,
+)
 
 from config import config
 from models import Product, ParseResult
@@ -185,32 +190,44 @@ class Parser:
         Returns:
             Список найденных товаров.
         """
-        # Находим контейнер со списком товаров
-        product_list = await self.page.query_selector(
+        # Находим контейнер со списком товаров через locator
+        product_list_locator = self.page.locator(
             '.product-list.product-list_row'
         )
+        product_list_count = await product_list_locator.count()
 
-        if product_list:
-            all_items = await product_list.query_selector_all(
+        if product_list_count > 0:
+            # Используем первый элемент
+            product_list = product_list_locator.first
+            all_items: list[Locator] = []
+            item_count = await product_list.locator(
                 ':scope > .product-list__item'
-            )
-            # Пропускаем рекламные элементы
-            product_list_items = []
-            for item in all_items:
+            ).count()
+
+            for i in range(item_count):
+                item = product_list.locator(
+                    ':scope > .product-list__item'
+                ).nth(i)
+                # Пропускаем рекламные элементы
                 item_class = await item.get_attribute('class') or ''
                 if 'product-list__item__search_related' not in item_class:
-                    product_list_items.append(item)
+                    all_items.append(item)
         else:
-            product_list_items = await self.page.query_selector_all(
+            # Fallback: ищем напрямую на странице
+            fallback_locator = self.page.locator(
                 '.product-list__item, article, div[class*="card"], '
                 'div[class*="item"], .product-card, .catalog-item, div.product'
             )
+            all_items = []
+            item_count = await fallback_locator.count()
+            for i in range(item_count):
+                all_items.append(fallback_locator.nth(i))
 
-        total_items_ref['value'] = len(product_list_items)
+        total_items_ref['value'] = len(all_items)
 
         # Собираем все карточки
         all_products = []
-        for item in product_list_items:
+        for item in all_items:
             product = await self._parse_single_card(item)
             if product:
                 all_products.append(product)
@@ -230,12 +247,12 @@ class Parser:
 
         return matched_products
 
-    async def _parse_single_card(self, item) -> Optional[Product]:
+    async def _parse_single_card(self, item: Locator) -> Optional[Product]:
         """
         Парсит одну карточку товара.
 
         Args:
-            item: Элемент карточки товара.
+            item: Локатор карточки товара.
 
         Returns:
             Product или None.
@@ -260,11 +277,13 @@ class Parser:
 
         return product
 
-    async def _extract_product_name(self, item) -> str:
+    async def _extract_product_name(self, item: Locator) -> str:
         """Извлекает наименование товара из карточки."""
-        all_links = await item.query_selector_all('a')
+        all_links = item.locator('a')
+        link_count = await all_links.count()
 
-        for link in all_links:
+        for i in range(link_count):
+            link = all_links.nth(i)
             href = await link.get_attribute('href')
             link_class = await link.get_attribute('class') or ''
 
@@ -281,41 +300,41 @@ class Parser:
 
         return ""
 
-    async def _extract_brand_article(self, item) -> tuple[str, str]:
+    async def _extract_brand_article(self, item: Locator) -> tuple[str, str]:
         """Извлекает бренд и артикул из карточки."""
         brand = ""
         article = ""
 
-        dotted_items = await item.query_selector_all('.dotted-list__item')
+        dotted_items = item.locator('.dotted-list__item')
+        dotted_count = await dotted_items.count()
 
-        for dotted_item in dotted_items:
+        for i in range(dotted_count):
+            dotted_item = dotted_items.nth(i)
             title_attr = await dotted_item.get_attribute('title')
 
             if title_attr == 'Бренд':
-                value_el = await dotted_item.query_selector(
-                    '.dotted-list__item-value'
-                )
-                if value_el:
-                    brand = (await value_el.inner_text()).strip()
+                value_el = dotted_item.locator('.dotted-list__item-value')
+                if await value_el.count() > 0:
+                    brand = (await value_el.first.inner_text()).strip()
 
             elif title_attr == 'Артикул':
-                value_el = await dotted_item.query_selector(
-                    '.dotted-list__item-value'
-                )
-                if value_el:
-                    article = (await value_el.inner_text()).strip()
+                value_el = dotted_item.locator('.dotted-list__item-value')
+                if await value_el.count() > 0:
+                    article = (await value_el.first.inner_text()).strip()
 
         return brand, article
 
-    async def _extract_availability(self, item) -> str:
+    async def _extract_availability(self, item: Locator) -> str:
         """Извлекает информацию о наличии."""
         # Ищем "В наличии" в ссылках
-        all_links = await item.query_selector_all('a')
+        all_links = item.locator('a')
+        link_count = await all_links.count()
 
-        for link in all_links:
-            b_element = await link.query_selector('b')
-            if b_element:
-                b_text = await b_element.inner_text()
+        for i in range(link_count):
+            link = all_links.nth(i)
+            b_element = link.locator('b')
+            if await b_element.count() > 0:
+                b_text = await b_element.first.inner_text()
                 if 'В наличии' in b_text or 'на складе' in b_text.lower():
                     return ' '.join(b_text.split()).strip()
 
@@ -323,7 +342,7 @@ class Parser:
             if 'В наличии' in link_text or 'на складе' in link_text.lower():
                 return ' '.join(link_text.split()).strip()
 
-        # Ищем дату доставки
+        # Ищем дату доставки через JavaScript
         delivery_info = await item.evaluate('''
             (el) => {
                 const deliveryBlocks = el.querySelectorAll('.block-delivery__variant-main');
@@ -359,7 +378,7 @@ class Parser:
 
         return ""
 
-    async def _extract_price(self, item) -> tuple[float, str, bool]:
+    async def _extract_price(self, item: Locator) -> tuple[float, str, bool]:
         """
         Извлекает цену из карточки.
 
@@ -371,11 +390,11 @@ class Parser:
         is_price = False
 
         # Приоритет 1: .price.price_big.price_green
-        price_green_elements = await item.query_selector_all(
-            '.price.price_big.price_green'
-        )
+        price_green_locator = item.locator('.price.price_big.price_green')
+        green_count = await price_green_locator.count()
 
-        for el in price_green_elements:
+        for i in range(green_count):
+            el = price_green_locator.nth(i)
             text = (await el.inner_text()).strip()
             price_val, is_price = self._parse_price_text(text)
             if is_price:
@@ -383,11 +402,11 @@ class Parser:
                 return price_val, price_text, is_price
 
         # Приоритет 2: .product-price-new__price_main
-        price_elements = await item.query_selector_all(
-            '.product-price-new__price_main'
-        )
+        price_locator = item.locator('.product-price-new__price_main')
+        price_count = await price_locator.count()
 
-        for el in price_elements:
+        for i in range(price_count):
+            el = price_locator.nth(i)
             text = (await el.inner_text()).strip()
             price_val, is_price = self._parse_price_text(text)
             if is_price:
@@ -432,6 +451,7 @@ class Parser:
     ) -> bool:
         """
         Проверяет наличие бренда и артикула в наименовании товара.
+        Использует регулярные выражения для точной проверки границ артикула.
 
         Args:
             product_name: Наименование товара.
@@ -444,24 +464,29 @@ class Parser:
         if not product_name:
             return False
 
-        name_upper = product_name.upper().replace('-', '')
+        name_upper = product_name.upper()
         brand_upper = brand.upper()
-        article_upper = ' ' + article.upper()
 
+        # Проверяем бренд
         has_brand = brand_upper in name_upper
-        has_article = article_upper in name_upper
+        if not has_brand:
+            return False
 
-        # Проверяем что после артикула нет букв/цифр
-        if has_article:
-            article_pos = name_upper.find(article_upper)
-            if article_pos >= 0:
-                after_article_pos = article_pos + len(article_upper)
-                if after_article_pos < len(name_upper):
-                    next_char = name_upper[after_article_pos]
-                    if next_char.isalnum():
-                        has_article = False
+        # Проверяем артикул с учётом границ слова
+        # \b не работает с кириллицей, поэтому используем свой паттерн
+        # Ищем артикул, за которым следует не-буквенно-цифровой символ или конец строки
+        article_upper = article.upper().replace('-', '')
+        
+        # Экранируем специальные символы regex
+        article_escaped = re.escape(article_upper)
+        
+        # Паттерн: артикул, за которым следует граница (не буква/цифра или конец строки)
+        # Также проверяем, что перед артикулом не буква/цифра
+        pattern = rf'(?<![A-Z0-9]){article_escaped}(?![A-Z0-9])'
+        
+        has_article = bool(re.search(pattern, name_upper))
 
-        return has_brand and has_article
+        return has_article and has_brand
 
     def _validate_brand_article(
         self,
@@ -486,21 +511,14 @@ class Parser:
         if item_brand.upper() != brand.upper():
             return False
 
-        # Валидируем артикул
+        # Валидируем артикул с помощью regex
         item_article_upper = item_article.upper().replace('-', '')
-        article_upper = article.upper()
-
-        if article_upper not in item_article_upper:
-            return False
-
-        # Проверяем что после артикула нет букв/цифр
-        article_pos = item_article_upper.find(article_upper)
-        if article_pos >= 0:
-            after_article_pos = article_pos + len(article_upper)
-            if after_article_pos >= len(item_article_upper):
-                return True
-
-            next_char = item_article_upper[after_article_pos]
-            return not next_char.isalnum()
-
-        return False
+        article_upper = article.upper().replace('-', '')
+        
+        # Экранируем специальные символы regex
+        article_escaped = re.escape(article_upper)
+        
+        # Паттерн: артикул, за которым следует граница (не буква/цифра или конец строки)
+        pattern = rf'(?<![A-Z0-9]){article_escaped}(?![A-Z0-9])'
+        
+        return bool(re.search(pattern, item_article_upper))

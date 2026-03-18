@@ -3897,3 +3897,261 @@ alex@alex-pc:~/hyperauto-parser$
 
 =====
 
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+[+] up 1/1
+ ✔ Container hyperauto-parser Recreated                                                                                                                                                     0.3s
+Attaching to hyperauto-parser
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 16, in <module>
+hyperauto-parser  |     from browser import BrowserSession
+hyperauto-parser  |   File "/app/browser.py", line 10, in <module>
+hyperauto-parser  |     from utils import logger, load_cookies, save_cookies
+hyperauto-parser  |   File "/app/utils.py", line 156
+hyperauto-parser  |     f"⚠ Файл {
+hyperauto-parser  |     ^
+hyperauto-parser  | SyntaxError: unterminated string literal (detected at line 156)
+hyperauto-parser exited with code 1
+
+=====
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+Attaching to hyperauto-parser
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 17, in <module>
+hyperauto-parser  |     from parser import Parser
+hyperauto-parser  |   File "/app/parser.py", line 13, in <module>
+hyperauto-parser  |     from error_handler import handle_parse_errors, error_metrics, log_error_json, retry_async
+hyperauto-parser  |   File "/app/error_handler.py", line 60
+hyperauto-parser  |     f"Все {max_retries} попыток исчерпаны для {
+hyperauto-parser  |     ^
+hyperauto-parser  | SyntaxError: unterminated string literal (detected at line 60)
+hyperauto-parser exited with code 1
+
+
+======
+
+ ✔ Image hyperauto-parser-hyperauto-parser Built                                                                                                                                            0.1s
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+Attaching to hyperauto-parser
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 17, in <module>
+hyperauto-parser  |     from parser import Parser
+hyperauto-parser  |   File "/app/parser.py", line 13, in <module>
+hyperauto-parser  |     from error_handler import handle_parse_errors, error_metrics, log_error_json, retry_async
+hyperauto-parser  |   File "/app/error_handler.py", line 165
+hyperauto-parser  |     f"  Ошибки по типам: {
+hyperauto-parser  |     ^
+hyperauto-parser  | SyntaxError: unterminated string literal (detected at line 165)
+hyperauto-parser exited with code 1
+
+
+====
+
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+Attaching to hyperauto-parser
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 17, in <module>
+hyperauto-parser  |     from parser import Parser
+hyperauto-parser  |   File "/app/parser.py", line 13, in <module>
+hyperauto-parser  |     from error_handler import handle_parse_errors, error_metrics, log_error_json, retry_async
+hyperauto-parser  |   File "/app/error_handler.py", line 302
+hyperauto-parser  |     price_text=f"ошибка: {
+hyperauto-parser  |                ^
+hyperauto-parser  | SyntaxError: unterminated string literal (detected at line 302)
+hyperauto-parser exited with code 1
+
+
+=====
+
+Autopep8 broke the f-string. Let me fix it:
+не применять!!!
+
+
+======
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+Attaching to hyperauto-parser
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 27, in <module>
+hyperauto-parser  |     from health_check import full_health_check, ParserNetworkError
+hyperauto-parser  |   File "/app/health_check.py", line 61
+hyperauto-parser  |     f"✓ Сайт {url} доступен (статус: {
+hyperauto-parser  |     ^
+hyperauto-parser  | SyntaxError: unterminated string literal (detected at line 61)
+
+
+опять ошибка
+
+сам проийдись и исправь ошибки на разрывы f-строк
+======
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+
+7. Конфигурация и развёртывание
+Вынести CITY_SLUG, DELAY, TIMEOUT в переменные окружения
+Добавить .env.example с шаблоном настроек
+Улучшить Dockerfile (multi-stage build, non-root user)
+
+======
+
+
+alex@alex-pc:~/hyperauto-parser$ docker compose build
+WARN[0000] Docker Compose requires buildx plugin to be installed
+Sending build context to Docker daemon  32.98kB
+Step 1/29 : FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy AS builder
+ ---> b9fab864a253
+Step 2/29 : WORKDIR /build
+ ---> Using cache
+ ---> 4642c73ec1a5
+Step 3/29 : COPY requirements.txt .
+ ---> Using cache
+ ---> b8327a10f987
+Step 4/29 : RUN pip install --no-cache-dir --user -r requirements.txt
+ ---> Using cache
+ ---> 13b81dd5ace4
+Step 5/29 : FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy AS production
+ ---> b9fab864a253
+Step 6/29 : RUN groupadd --gid 1000 appgroup &&     useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+ ---> Running in dac487c81c33
+groupadd: GID '1000' already exists
+[+] build 0/1
+ ⠙ Image hyperauto-parser-hyperauto-parser Building                                                                                                                                         1.0s
+The command '/bin/sh -c groupadd --gid 1000 appgroup &&     useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser' returned a non-zero code: 4
+
+
+=====
+
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+env file /home/alex/hyperauto-parser/.env not found: stat /home/alex/hyperauto-parser/.env: no such file or directory
+
+
+=====
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+[+] up 1/1
+ ✔ Container hyperauto-parser Recreated                                                                                                                                                     0.3s
+Attaching to hyperauto-parser
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 235, in <module>
+hyperauto-parser  |     asyncio.run(main_async())
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+hyperauto-parser  |     return loop.run_until_complete(main)
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+hyperauto-parser  |     return future.result()
+hyperauto-parser  |   File "/app/main.py", line 32, in main_async
+hyperauto-parser  |     setup_logger()
+hyperauto-parser  |   File "/app/utils.py", line 31, in setup_logger
+hyperauto-parser  |     logger.add(
+hyperauto-parser  |   File "/home/appuser/.local/lib/python3.10/site-packages/loguru/_logger.py", line 795, in add
+hyperauto-parser  |     wrapped_sink = FileSink(path, **kwargs)
+hyperauto-parser  |   File "/home/appuser/.local/lib/python3.10/site-packages/loguru/_file_sink.py", line 192, in __init__
+hyperauto-parser  |     self._create_file(path)
+hyperauto-parser  |   File "/home/appuser/.local/lib/python3.10/site-packages/loguru/_file_sink.py", line 226, in _create_file
+hyperauto-parser  |     self._file = open(path, **self._kwargs)
+hyperauto-parser  | PermissionError: [Errno 13] Permission denied: '/app/logs/logs-2026-03-18-14-20-32.txt'
+hyperauto-parser exited with code 1
+
+
+======
+
+
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+[+] up 1/1
+ ✔ Container hyperauto-parser Recreated                                                                                                                                                     0.3s
+Attaching to hyperauto-parser
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 235, in <module>
+hyperauto-parser  |     asyncio.run(main_async())
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+hyperauto-parser  |     return loop.run_until_complete(main)
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+hyperauto-parser  |     return future.result()
+hyperauto-parser  |   File "/app/main.py", line 32, in main_async
+hyperauto-parser  |     setup_logger()
+hyperauto-parser  |   File "/app/utils.py", line 31, in setup_logger
+hyperauto-parser  |     logger.add(
+hyperauto-parser  |   File "/home/appuser/.local/lib/python3.10/site-packages/loguru/_logger.py", line 795, in add
+hyperauto-parser  |     wrapped_sink = FileSink(path, **kwargs)
+hyperauto-parser  |   File "/home/appuser/.local/lib/python3.10/site-packages/loguru/_file_sink.py", line 192, in __init__
+hyperauto-parser  |     self._create_file(path)
+hyperauto-parser  |   File "/home/appuser/.local/lib/python3.10/site-packages/loguru/_file_sink.py", line 226, in _create_file
+hyperauto-parser  |     self._file = open(path, **self._kwargs)
+hyperauto-parser  | PermissionError: [Errno 13] Permission denied: '/app/logs/logs-2026-03-18-14-25-53.txt'
+hyperauto-parser exited with code 1
+
+=====
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+[+] up 1/1
+ ✔ Container hyperauto-parser Recreated                                                                                                                                                     0.2s
+Attaching to hyperauto-parser
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 8, in <module>
+hyperauto-parser  |     import pandas as pd
+hyperauto-parser  | ModuleNotFoundError: No module named 'pandas'
+hyperauto-parser exited with code 1
+
+
+=====
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+[+] up 1/1
+ ✔ Container hyperauto-parser Recreated                                                                                                                                                     0.3s
+Attaching to hyperauto-parser
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO | === Запуск парсера Гиперавто (Playwright) ===
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO | Текущая папка: /app
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO | Ищем файл: товары.xlsx
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO | Файл найден → читаем...
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO | Прочитано строк: 2
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO |   Бренд Артикул
+hyperauto-parser  | 0   CTR  CB0234
+hyperauto-parser  | 1   CTR  CB0177
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO | Колонки в порядке → запускаем браузер...
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO | 🔍 Проверка доступности сайта...
+hyperauto-parser  | 2026-03-18 14:31:31 | INFO | 🔍 Проверка доступности сайта...
+hyperauto-parser  | 2026-03-18 14:31:32 | INFO | ✓ Сайт https://hyperauto.ru доступен (статус: 200)
+hyperauto-parser  | 2026-03-18 14:31:47 | ERROR | ✗ Таймаут проверки поиска: https://hyperauto.ru/komsomolsk/search/масло/
+hyperauto-parser  | 2026-03-18 14:31:47 | ERROR |   Проверка поиска не пройдена: Таймаут проверки поиска: https://hyperauto.ru/komsomolsk/search/масло/
+hyperauto-parser  | 2026-03-18 14:31:47 | ERROR | ✗ Сайт недоступен. Запуск парсера отменён.
+hyperauto-parser exited with code 0
+
+откуда возник запрос https://hyperauto.ru/komsomolsk/search/масло/
+?
+======
+
+
+hyperauto-parser  | 2026-03-18 14:36:05 | INFO | 🔍 Проверка доступности сайта...
+hyperauto-parser  | 2026-03-18 14:36:05 | INFO | 🔍 Проверка доступности сайта...
+hyperauto-parser  | 2026-03-18 14:36:06 | INFO | ✓ Сайт https://hyperauto.ru доступен (статус: 200)
+
+слишком быстро посылаются запросы 
+
+====
+
+⚠ Сайт вернул 400, пробуем ещё раз...
+
+убрать эту логику
+
+=====
+
+вообще убери эту проверку
+⚠ Сайт вернул 400
+
+
+=====
+
+
+

@@ -3,7 +3,13 @@
 """
 from typing import Optional
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
+from playwright.async_api import (
+    async_playwright,
+    Browser,
+    BrowserContext,
+    Page,
+    Playwright,
+)
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from config import config
@@ -30,7 +36,7 @@ class BrowserSession:
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
         self._has_session: bool = False
-        self._playwright_context = None
+        self._playwright_context: Optional[async_playwright] = None
 
     async def start(self) -> None:
         """
@@ -41,43 +47,58 @@ class BrowserSession:
         """
         logger.info("Попытка запуска браузера Playwright...")
 
-        self._playwright_context = async_playwright()
-        self.playwright = await self._playwright_context.__aenter__()
-
-        logger.info("Playwright инициализирован")
+        try:
+            self._playwright_context = async_playwright()
+            self.playwright = await self._playwright_context.__aenter__()
+            logger.info("Playwright инициализирован")
+        except Exception as e:
+            logger.error(f"Ошибка инициализации Playwright: {e}")
+            self._playwright_context = None
+            self.playwright = None
+            raise
 
         # Загружаем cookies если есть
         storage_state = load_cookies()
         self._has_session = storage_state is not None
 
         # Запускаем браузер
-        self.browser = await self.playwright.chromium.launch(
-            headless=config.HEADLESS,
-            slow_mo=500
-        )
-        logger.info("Браузер запущен")
+        try:
+            self.browser = await self.playwright.chromium.launch(
+                headless=config.HEADLESS,
+                slow_mo=500
+            )
+            logger.info("Браузер запущен")
+        except Exception as e:
+            logger.error(f"Ошибка запуска браузера: {e}")
+            await self.close()
+            raise
 
         # Создаём контекст
-        self.context = await self.browser.new_context(
-            storage_state=storage_state,
-            viewport={
-                'width': config.VIEWPORT_WIDTH,
-                'height': config.VIEWPORT_HEIGHT
-            },
-            user_agent=config.USER_AGENT,
-            locale=config.LOCALE,
-            timezone_id=config.TIMEZONE_ID,
-        )
+        try:
+            self.context = await self.browser.new_context(
+                storage_state=storage_state,
+                viewport={
+                    'width': config.VIEWPORT_WIDTH,
+                    'height': config.VIEWPORT_HEIGHT
+                },
+                user_agent=config.USER_AGENT,
+                locale=config.LOCALE,
+                timezone_id=config.TIMEZONE_ID,
+            )
 
-        # Создаём страницу
-        self.page = await self.context.new_page()
+            # Создаём страницу
+            self.page = await self.context.new_page()
 
-        # Обход детектов ботов
-        await self.page.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            });
-        """)
+            # Обход детектов ботов
+            await self.page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+            """)
+        except Exception as e:
+            logger.error(f"Ошибка создания контекста/страницы: {e}")
+            await self.close()
+            raise
 
         # Если сессии не было — даём время пройти капчу
         if not self._has_session:
@@ -103,14 +124,35 @@ class BrowserSession:
 
     async def close(self) -> None:
         """Закрывает браузер и очищает ресурсы."""
+        errors = []
+
         if self.browser:
-            await self.browser.close()
+            try:
+                await self.browser.close()
+            except Exception as e:
+                errors.append(f"browser.close: {e}")
 
         if self.playwright:
-            await self.playwright.stop()
+            try:
+                await self.playwright.stop()
+            except Exception as e:
+                errors.append(f"playwright.stop: {e}")
 
         if self._playwright_context:
-            await self._playwright_context.__aexit__(None, None, None)
+            try:
+                await self._playwright_context.__aexit__(None, None, None)
+            except Exception as e:
+                errors.append(f"playwright_context.__aexit__: {e}")
+
+        # Сбрасываем ссылки
+        self.playwright = None
+        self.browser = None
+        self.context = None
+        self.page = None
+        self._playwright_context = None
+
+        if errors:
+            logger.warning(f"Ошибки при закрытии браузера: {'; '.join(errors)}")
 
     async def __aenter__(self) -> 'BrowserSession':
         """Асинхронный контекстный менеджер (вход)."""
