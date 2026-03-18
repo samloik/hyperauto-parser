@@ -161,11 +161,8 @@ class ErrorMetrics:
         logger.error(alert_msg)
 
         # Логируем детали
-        logger.error(
-            f"  Ошибки по типам: {
-                json.dumps(
-                    self.errors_by_type,
-                    ensure_ascii=False)}")
+        errors_json = json.dumps(self.errors_by_type, ensure_ascii=False)
+        logger.error(f"  Ошибки по типам: {errors_json}")
 
         # Топ-5 товаров с ошибками
         top_errors = sorted(
