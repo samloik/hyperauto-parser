@@ -57,8 +57,7 @@ def retry_async(
                         await asyncio.sleep(delay)
                     else:
                         log_func(
-                            f"Все {max_retries} попыток исчерпаны для {
-                                func.__name__}"
+                            f"Все {max_retries} попыток исчерпаны для {func.__name__}"
                         )
 
             # Должны выбросить последнее исключение
