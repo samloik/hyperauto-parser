@@ -1,12 +1,33 @@
 
-hyperauto-parser
+# hyperauto-parser
 
 Парсер товаров по Бренду и Артикулу на сайте: https://hyperauto.ru/
 
-Данные для поиска ввиде Колонок Бренд и Артикул записаны в excel файл: 'товары.xlsx'
+Данные для поиска в виде колонок "Бренд" и "Артикул" записаны в Excel файл: `товары.xlsx`
 
+## Структура проекта
 
-Порядок настройки и запуска в PowerShell (от имени администратора):
+```
+hyperauto-parser/
+├── config.py       # Конфигурация и настройки
+├── models.py       # Модели данных (Product, ParseResult, ParseStats)
+├── utils.py        # Вспомогательные функции
+├── browser.py      # Управление браузером (BrowserSession)
+├── parser.py       # Логика парсинга (Parser)
+├── main.py         # Точка входа
+├── .env.example    # Шаблон конфигурации
+└── requirements.txt
+```
+
+## Настройка
+
+Скопируйте `.env.example` в `.env` и измените настройки при необходимости:
+
+```bash
+cp .env.example .env
+```
+
+## Порядок настройки и запуска в PowerShell (от имени администратора):
 
 ```bash
 git clone https://github.com/samloik/hyperauto-parser.git
