@@ -93,7 +93,7 @@ async def main_async() -> None:
             all_results.extend(rows)
             
             # Вывод на экран
-            _log_result(result)
+            _log_result(result, idx + 1, total_len)
             
             # Сохраняем ошибки
             if result.has_errors:
@@ -145,16 +145,16 @@ async def main_async() -> None:
                 f"({stats.success_rate:.1f}%)")
 
 
-def _log_result(result: ParseResult) -> None:
+def _log_result(result: ParseResult, row_num: int, total_len: int) -> None:
     """Выводит результат парсинга в лог."""
-    total_width = len(str(result.total_items)) if result.total_items else 1
-    
+    total_width = len(str(total_len))
+
     for idx, product in enumerate(result.products):
-        # Формируем префикс
+        # Формируем префикс в формате [номер/всего] или [номер/всего][подномер]
         if len(result.products) > 1:
-            prefix = f"[{result.timestamp.strftime('%H:%M:%S')}][{idx + 1}]"
+            prefix = f"[{row_num:0{total_width}d}/{total_len}][{idx + 1}]"
         else:
-            prefix = f"[{result.timestamp.strftime('%H:%M:%S')}]"
+            prefix = f"[{row_num:0{total_width}d}/{total_len}] "
         
         if product.is_price:
             name_display = f"{result.brand}/{result.article}"[:25]
