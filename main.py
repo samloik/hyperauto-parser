@@ -232,9 +232,34 @@ async def get_price_async(page, brand: str, article: str) -> (list, str, int, in
             results = []
             matched_count = 0
             for price_val, is_price, price_text, product_name, availability, item_brand, item_article in all_products:
+                # Сначала проверяем по наименованию
                 if check_brand_article_in_name(product_name, brand, article):
                     matched_count += 1
                     results.append((price_val, is_price, price_text, product_name, "", availability, item_brand, item_article))
+                # Если не найдено в наименовании, проверяем по данным из карточки
+                elif item_brand and item_article:
+                    # Проверяем бренд из карточки
+                    if item_brand.upper() == brand.upper():
+                        # Валидируем артикул из карточки (аналогично проверке в наименовании)
+                        item_article_upper = item_article.upper().replace('-', '')
+                        article_upper = article.upper()
+                        
+                        # Ищем артикул в артикуле из карточки
+                        if article_upper in item_article_upper:
+                            # Проверяем что после артикула нет букв/цифр
+                            article_pos = item_article_upper.find(article_upper)
+                            if article_pos >= 0:
+                                after_article_pos = article_pos + len(article_upper)
+                                if after_article_pos >= len(item_article_upper):
+                                    # Артикул найден и это конец строки - подходит
+                                    matched_count += 1
+                                    results.append((price_val, is_price, price_text, product_name, "", availability, item_brand, item_article))
+                                else:
+                                    next_char = item_article_upper[after_article_pos]
+                                    if not next_char.isalnum():
+                                        # После артикула допустимый символ - подходит
+                                        matched_count += 1
+                                        results.append((price_val, is_price, price_text, product_name, "", availability, item_brand, item_article))
 
             # Возвращаем все найденные позиции и количество совпавших
             if results:
