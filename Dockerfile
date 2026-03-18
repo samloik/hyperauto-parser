@@ -20,9 +20,12 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 # -------------------------------------------
 FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy AS production
 
-# Создаём non-root пользователя для безопасности
-RUN groupadd --gid 1000 appgroup && \
-    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+# Проверяем существует ли уже пользователь appuser
+# Если нет - создаём non-root пользователя для безопасности
+RUN if ! id -u appuser >/dev/null 2>&1; then \
+        groupadd --gid 1001 appgroup && \
+        useradd --uid 1001 --gid appgroup --shell /bin/bash --create-home appuser; \
+    fi
 
 WORKDIR /app
 
