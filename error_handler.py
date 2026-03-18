@@ -231,7 +231,9 @@ def log_error_json(
         f"  {brand}/{article}: {error.__class__.__name__}: {str(error)[:120]}...")
 
 
-def handle_parse_errors(func: Callable) -> Callable:
+def handle_parse_errors(
+    metrics: Optional[ErrorMetrics] = None
+) -> Callable:
     """
     Декоратор для централизованной обработки ошибок парсинга.
 
@@ -242,66 +244,77 @@ def handle_parse_errors(func: Callable) -> Callable:
     - Возвращает стандартный ответ при ошибке
 
     Args:
-        func: Функция для декорирования.
+        metrics: Экземпляр ErrorMetrics для записи метрик.
+                 Если не указан, используется глобальный error_metrics.
 
     Returns:
         Обёрнутая функция.
+
+    Пример:
+        @handle_parse_errors(metrics=my_metrics)
+        async def parse_product(brand, article):
+            ...
     """
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        # Извлекаем бренд и артикул из аргументов
-        brand = kwargs.get('brand', '')
-        article = kwargs.get('article', '')
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Извлекаем бренд и артикул из аргументов
+            brand = kwargs.get('brand', '')
+            article = kwargs.get('article', '')
 
-        # Если переданы позиционные аргументы
-        if len(args) >= 2:
-            brand = brand or args[0]
-            article = article or args[1]
+            # Если переданы позиционные аргументы
+            if len(args) >= 2:
+                brand = brand or args[0]
+                article = article or args[1]
 
-        try:
-            return await func(*args, **kwargs)
-        except ParserError as e:
-            # Кастомные исключения парсера
-            error_metrics.record_error(
-                error_type=e.__class__.__name__,
-                brand=brand,
-                article=article,
-                **e.context
-            )
-            log_error_json(e, brand, article, e.context)
+            # Используем переданные метрики или глобальные
+            metrics_to_use = metrics if metrics is not None else error_metrics
 
-            # Возвращаем стандартный ответ с ошибкой
-            from models import ParseResult, Product
-            result = ParseResult(
-                brand=brand,
-                article=article,
-                error_message=e.message
-            )
-            result.products.append(Product(price_text=e.message))
-            return result
+            try:
+                return await func(*args, **kwargs)
+            except ParserError as e:
+                # Кастомные исключения парсера
+                metrics_to_use.record_error(
+                    error_type=e.__class__.__name__,
+                    brand=brand,
+                    article=article,
+                    **e.context
+                )
+                log_error_json(e, brand, article, e.context)
 
-        except Exception as e:
-            # Общие исключения
-            error_metrics.record_error(
-                error_type=e.__class__.__name__,
-                brand=brand,
-                article=article,
-                exception_message=str(e)[:200]
-            )
-            log_error_json(e, brand, article)
+                # Возвращаем стандартный ответ с ошибкой
+                from models import ParseResult, Product
+                result = ParseResult(
+                    brand=brand,
+                    article=article,
+                    error_message=e.message
+                )
+                result.products.append(Product(price_text=e.message))
+                return result
 
-            # Возвращаем стандартный ответ с ошибкой
-            from models import ParseResult, Product
-            result = ParseResult(
-                brand=brand,
-                article=article,
-                error_message=str(e)[:100]
-            )
-            error_msg = f"ошибка: {str(e)[:50]}"
-            result.products.append(Product(price_text=error_msg))
-            return result
+            except Exception as e:
+                # Общие исключения
+                metrics_to_use.record_error(
+                    error_type=e.__class__.__name__,
+                    brand=brand,
+                    article=article,
+                    exception_message=str(e)[:200]
+                )
+                log_error_json(e, brand, article)
 
-    return wrapper
+                # Возвращаем стандартный ответ с ошибкой
+                from models import ParseResult, Product
+                result = ParseResult(
+                    brand=brand,
+                    article=article,
+                    error_message=str(e)[:100]
+                )
+                error_msg = f"ошибка: {str(e)[:50]}"
+                result.products.append(Product(price_text=error_msg))
+                return result
+
+        return wrapper
+    return decorator
 
 
 def save_error_report(filepath: Optional[Path] = None) -> None:
