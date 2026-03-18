@@ -7,8 +7,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем код приложения (модульная структура)
-COPY main.py config.py models.py utils.py browser.py parser.py .
-COPY cookies.json .
+COPY main.py config.py models.py utils.py browser.py parser.py ./
+COPY cookies.json ./
 
 # Указываем путь к браузерам, которые уже установлены в образе
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
