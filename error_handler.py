@@ -77,6 +77,8 @@ class ErrorMetrics:
     - Количество ошибок по типам
     - Процент ошибок
     - Время последней ошибки
+
+    Потокобезопасен благодаря asyncio.Lock.
     """
 
     def __init__(self, error_threshold: float = 50.0):
@@ -91,8 +93,9 @@ class ErrorMetrics:
         self.last_error_time: Optional[datetime] = None
         self.error_threshold = error_threshold
         self.alert_triggered = False
+        self._lock = asyncio.Lock()  # Блокировка для потокобезопасности
 
-    def record_error(
+    async def record_error(
         self,
         error_type: str,
         brand: str = "",
@@ -100,7 +103,7 @@ class ErrorMetrics:
         **kwargs
     ) -> None:
         """
-        Записывает ошибку в метрики.
+        Записывает ошибку в метрики (потокобезопасно).
 
         Args:
             error_type: Тип ошибки.
@@ -108,28 +111,30 @@ class ErrorMetrics:
             article: Артикул товара.
             kwargs: Дополнительные данные.
         """
-        self.total_requests += 1
-        self.total_errors += 1
-        self.last_error_time = datetime.now()
+        async with self._lock:
+            self.total_requests += 1
+            self.total_errors += 1
+            self.last_error_time = datetime.now()
 
-        # Считаем по типам
-        if error_type not in self.errors_by_type:
-            self.errors_by_type[error_type] = 0
-        self.errors_by_type[error_type] += 1
+            # Считаем по типам
+            if error_type not in self.errors_by_type:
+                self.errors_by_type[error_type] = 0
+            self.errors_by_type[error_type] += 1
 
-        # Считаем по товарам
-        if brand or article:
-            key = f"{brand}/{article}"
-            if key not in self.errors_by_brand_article:
-                self.errors_by_brand_article[key] = 0
-            self.errors_by_brand_article[key] += 1
+            # Считаем по товарам
+            if brand or article:
+                key = f"{brand}/{article}"
+                if key not in self.errors_by_brand_article:
+                    self.errors_by_brand_article[key] = 0
+                self.errors_by_brand_article[key] += 1
 
-        # Проверяем порог для алерта
-        self._check_alert()
+            # Проверяем порог для алерта
+            self._check_alert()
 
-    def record_success(self) -> None:
-        """Записывает успешный запрос."""
-        self.total_requests += 1
+    async def record_success(self) -> None:
+        """Записывает успешный запрос (потокобезопасно)."""
+        async with self._lock:
+            self.total_requests += 1
 
     def _check_alert(self) -> None:
         """Проверяет порог ошибок и triggering алерт."""
@@ -240,7 +245,7 @@ def handle_parse_errors(
     Автоматически:
     - Ловит исключения
     - Логирует в JSON формате
-    - Обновляет метрики
+    - Обновляет метрики (потокобезопасно)
     - Возвращает стандартный ответ при ошибке
 
     Args:
@@ -274,7 +279,7 @@ def handle_parse_errors(
                 return await func(*args, **kwargs)
             except ParserError as e:
                 # Кастомные исключения парсера
-                metrics_to_use.record_error(
+                await metrics_to_use.record_error(
                     error_type=e.__class__.__name__,
                     brand=brand,
                     article=article,
@@ -294,7 +299,7 @@ def handle_parse_errors(
 
             except Exception as e:
                 # Общие исключения
-                metrics_to_use.record_error(
+                await metrics_to_use.record_error(
                     error_type=e.__class__.__name__,
                     brand=brand,
                     article=article,

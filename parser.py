@@ -12,7 +12,6 @@ from models import Product, ParseResult
 from utils import logger
 from error_handler import (
     ErrorMetrics,
-    handle_parse_errors,
     error_metrics,
     log_error_json,
     retry_async,
@@ -82,7 +81,7 @@ class Parser:
         try:
             return await self._do_parse(brand, article)
         except ParserError as e:
-            metrics_to_use.record_error(
+            await metrics_to_use.record_error(
                 error_type=e.__class__.__name__,
                 brand=brand,
                 article=article,
@@ -99,7 +98,7 @@ class Parser:
             return result
 
         except Exception as e:
-            metrics_to_use.record_error(
+            await metrics_to_use.record_error(
                 error_type=e.__class__.__name__,
                 brand=brand,
                 article=article,
@@ -156,7 +155,7 @@ class Parser:
                 html_content=html_content
             ))
             result.error_message = "таймаут"
-            metrics_to_use.record_error(
+            await metrics_to_use.record_error(
                 error_type="ParserTimeoutError",
                 brand=brand,
                 article=article
@@ -173,7 +172,7 @@ class Parser:
         if products:
             result.products = products
             result.matched_items = len(products)
-            metrics_to_use.record_success()
+            await metrics_to_use.record_success()
             return result
         else:
             # Нет подходящих карточек
@@ -183,7 +182,7 @@ class Parser:
                 html_content=html_content
             ))
             result.error_message = "элементы не найдены"
-            metrics_to_use.record_error(
+            await metrics_to_use.record_error(
                 error_type="ParseNoResultsError",
                 brand=brand,
                 article=article
