@@ -297,11 +297,8 @@ def handle_parse_errors(func: Callable) -> Callable:
                 article=article,
                 error_message=str(e)[:100]
             )
-            result.products.append(
-                Product(
-                    price_text=f"ошибка: {
-                        str(e)[
-                            :50]}"))
+            error_msg = f"ошибка: {str(e)[:50]}"
+            result.products.append(Product(price_text=error_msg))
             return result
 
     return wrapper
