@@ -49,8 +49,13 @@ class Config:
     
     # Логирование
     LOG_FORMAT: str = "{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
+    LOG_FORMAT_JSON: str = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {extra} | {message}"
     LOG_RETENTION_DAYS: int = int(os.getenv('LOG_RETENTION_DAYS', '30'))
     LOG_LEVEL: str = os.getenv('LOG_LEVEL', 'INFO')
+    LOG_JSON_ENABLED: bool = os.getenv('LOG_JSON_ENABLED', '0') == '1'
+    
+    # Метрики и алерты
+    ERROR_THRESHOLD: float = float(os.getenv('ERROR_THRESHOLD', '50.0'))
     
     # Excel
     EXCEL_COLUMN_WIDTH_MIN: int = int(os.getenv('EXCEL_COLUMN_WIDTH_MIN', '10'))

@@ -20,20 +20,31 @@ def setup_logger() -> None:
     """
     logger.remove()
     
-    # Консольный вывод
+    # Консольный вывод (обычный формат)
     logger.add(
         sys.stdout,
         format=config.LOG_FORMAT,
         level=config.LOG_LEVEL
     )
     
-    # Файловый вывод с ротацией
+    # Файловый вывод с ротацией (обычный формат)
     logger.add(
         config.LOGS_DIR / "logs-{time:YYYY-MM-DD-HH-mm-ss}.txt",
         format=config.LOG_FORMAT,
         level=config.LOG_LEVEL,
         retention=timedelta(days=config.LOG_RETENTION_DAYS)
     )
+    
+    # JSON логирование (опционально)
+    if config.LOG_JSON_ENABLED:
+        logger.add(
+            config.LOGS_DIR / "logs-json-{time:YYYY-MM-DD-HH-mm-ss}.json",
+            format="{message}",
+            level=config.LOG_LEVEL,
+            retention=timedelta(days=config.LOG_RETENTION_DAYS),
+            serialize=True
+        )
+        logger.info("JSON логирование включено")
 
 
 def format_time(seconds: float) -> str:
@@ -136,17 +147,19 @@ async def save_error_files(
 def load_cookies() -> Optional[dict]:
     """
     Загружает cookies из файла.
-    
+
     Returns:
         Словарь с cookies или None если файл не найден/невалиден.
     """
     if not config.COOKIES_FILE.exists():
+        logger.warning(f"⚠ Файл {config.COOKIES_FILE} не найден — сессия не будет загружена")
+        logger.info("  После первого запуска (с ручным прохождением капчи) сессия сохранится автоматически")
         return None
-    
+
     try:
         with open(config.COOKIES_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
+
         # Нормализуем cookies для Playwright
         if 'cookies' in data:
             for cookie in data['cookies']:
@@ -154,7 +167,7 @@ def load_cookies() -> Optional[dict]:
                 if 'sameSite' in cookie:
                     if cookie['sameSite'] not in ('Strict', 'Lax', 'None'):
                         del cookie['sameSite']
-                
+
                 # domain не должен начинаться с http
                 if 'domain' in cookie:
                     cookie['domain'] = (
@@ -164,7 +177,8 @@ def load_cookies() -> Optional[dict]:
                         .lstrip(':')
                         .lstrip('/')
                     )
-        
+
+        logger.info(f"✓ Загружаем сессию из {config.COOKIES_FILE}")
         return data
     except Exception as e:
         logger.warning(f"⚠ Ошибка загрузки {config.COOKIES_FILE}: {e}")

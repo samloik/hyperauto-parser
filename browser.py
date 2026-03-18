@@ -50,17 +50,6 @@ class BrowserSession:
         storage_state = load_cookies()
         self._has_session = storage_state is not None
         
-        if self._has_session:
-            logger.info(f"✓ Загружаем сессию из {config.COOKIES_FILE}")
-        else:
-            logger.warning(
-                f"⚠ Файл {config.COOKIES_FILE} не найден — сессия не будет загружена"
-            )
-            logger.info(
-                "  После первого запуска (с ручным прохождением капчи) "
-                "сессия сохранится автоматически"
-            )
-        
         # Запускаем браузер
         self.browser = await self.playwright.chromium.launch(
             headless=config.HEADLESS,

@@ -130,12 +130,15 @@ class ParseStats:
         error_items: Количество позиций с ошибками.
         total_time: Общее время выполнения (секунды).
         times: Список времён выполнения каждого запроса.
+        error_threshold: Порог срабатывания алерта (процент ошибок).
     """
     total_items: int = 0
     success_items: int = 0
     error_items: int = 0
     total_time: float = 0.0
     times: list[float] = field(default_factory=list)
+    error_threshold: float = 50.0
+    _alert_triggered: bool = False
     
     @property
     def avg_time(self) -> float:
@@ -149,11 +152,53 @@ class ParseStats:
             return 0.0
         return (self.success_items / self.total_items) * 100
     
+    @property
+    def error_rate(self) -> float:
+        """Процент ошибок."""
+        if self.total_items == 0:
+            return 0.0
+        return (self.error_items / self.total_items) * 100
+    
     def add_result(self, result: ParseResult) -> None:
         """Добавляет результат парсинга в статистику."""
         self.total_items += 1
         self.times.append(result.elapsed_time)
         if result.has_errors:
             self.error_items += 1
+            self._check_alert()
         else:
             self.success_items += 1
+    
+    def _check_alert(self) -> None:
+        """Проверяет порог ошибок и triggering алерт."""
+        if self._alert_triggered:
+            return
+        
+        if self.error_rate >= self.error_threshold:
+            self._alert_triggered = True
+            self._send_alert()
+    
+    def _send_alert(self) -> None:
+        """Отправляет алерт о высоком проценте ошибок."""
+        from loguru import logger
+        logger.error(
+            f"🚨 ALERT: Высокий процент ошибок! "
+            f"{self.error_rate:.1f}% ({self.error_items}/{self.total_items})"
+        )
+    
+    def should_alert(self) -> bool:
+        """Проверяет, был ли отправлен алерт."""
+        return self._alert_triggered
+    
+    def get_summary(self) -> dict:
+        """Возвращает сводку по статистике."""
+        return {
+            "total_items": self.total_items,
+            "success_items": self.success_items,
+            "error_items": self.error_items,
+            "success_rate": self.success_rate,
+            "error_rate": self.error_rate,
+            "avg_time": self.avg_time,
+            "total_time": self.total_time,
+            "alert_triggered": self._alert_triggered,
+        }

@@ -22,6 +22,7 @@ from utils import (
     clear_errors_dir,
     adjust_excel_column_widths,
 )
+from error_handler import error_metrics, save_error_report
 
 
 async def main_async() -> None:
@@ -61,12 +62,12 @@ async def main_async() -> None:
         return
     
     logger.info("Колонки в порядке → запускаем браузер...")
-    
+
     # Очищаем папку ошибок
     clear_errors_dir()
-    
-    # Статистика
-    stats = ParseStats()
+
+    # Статистика с порогом алерта из конфига
+    stats = ParseStats(error_threshold=config.ERROR_THRESHOLD)
     all_results = []
     
     # Запускаем браузер
@@ -143,6 +144,15 @@ async def main_async() -> None:
                 f"Среднее на позицию: {format_time(stats.avg_time)}")
     logger.info(f"✓ Успешно: {stats.success_items}/{stats.total_items} "
                 f"({stats.success_rate:.1f}%)")
+    
+    # Выводим метрики ошибок
+    metrics_summary = error_metrics.get_summary()
+    logger.info(f"📊 Метрики ошибок: {metrics_summary['total_errors']}/{metrics_summary['total_requests']} "
+                f"({metrics_summary['error_rate']:.1f}%)")
+    
+    # Сохраняем отчёт по ошибкам если были ошибки
+    if metrics_summary['total_errors'] > 0:
+        save_error_report()
 
 
 def _log_result(result: ParseResult, row_num: int, total_len: int) -> None:

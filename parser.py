@@ -10,6 +10,8 @@ from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from config import config
 from models import Product, ParseResult
 from utils import logger
+from error_handler import handle_parse_errors, error_metrics, log_error_json
+from exceptions import ParserTimeoutError, ParserError
 
 
 class Parser:
@@ -22,7 +24,8 @@ class Parser:
     
     def __init__(self, page: Page):
         self.page = page
-    
+
+    @handle_parse_errors
     async def parse_product(
         self,
         brand: str,
@@ -30,11 +33,11 @@ class Parser:
     ) -> ParseResult:
         """
         Парсит информацию о товаре по бренду и артикулу.
-        
+
         Args:
             brand: Бренд товара.
             article: Артикул товара.
-            
+
         Returns:
             ParseResult с результатами парсинга.
         """
@@ -43,10 +46,10 @@ class Parser:
             article=article,
             timestamp=datetime.now()
         )
-        
+
         max_retries = config.MAX_RETRIES
         retry_count = 0
-        
+
         while retry_count < max_retries:
             try:
                 # Формируем URL поиска
@@ -55,21 +58,21 @@ class Parser:
                     f"{config.BASE_URL}/{config.CITY_SLUG}/search/{query.replace(' ', '%20')}/"
                 )
                 result.url = search_url
-                
+
                 # Переходим на страницу
                 await self.page.goto(
                     search_url,
                     wait_until="domcontentloaded",
                     timeout=config.TIMEOUT
                 )
-                
+
                 # Рандомизированная задержка
                 delay_ms = 2000 + int(config.DELAY * 1000 * 0.3 * random.random())
                 await self.page.wait_for_timeout(delay_ms)
-                
+
                 # Закрываем попапы/куки
                 await self._close_popups()
-                
+
                 # Ждём появления товаров
                 products_found = await self._wait_for_products()
                 if not products_found:
@@ -79,16 +82,24 @@ class Parser:
                         html_content=html_content
                     ))
                     result.error_message = "таймаут"
+                    # Записываем в метрики
+                    error_metrics.record_error(
+                        error_type="ParserTimeoutError",
+                        brand=brand,
+                        article=article
+                    )
                     return result
-                
+
                 # Парсим карточки товаров
                 total_items_ref = {'value': 0}
                 products = await self._parse_product_cards(brand, article, total_items_ref)
                 result.total_items = total_items_ref['value']
-                
+
                 if products:
                     result.products = products
                     result.matched_items = len(products)
+                    # Записываем успех в метрики
+                    error_metrics.record_success()
                     return result
                 else:
                     # Нет подходящих карточек
@@ -98,6 +109,11 @@ class Parser:
                         html_content=html_content
                     ))
                     result.error_message = "элементы не найдены"
+                    error_metrics.record_error(
+                        error_type="ParseNoResultsError",
+                        brand=brand,
+                        article=article
+                    )
                     return result
                     
             except Exception as e:
@@ -105,29 +121,43 @@ class Parser:
                     f"    Ошибка при {brand} {article}: {str(e)[:120]}..."
                 )
                 retry_count += 1
-                
+
                 if retry_count < max_retries:
                     await self.page.wait_for_timeout(int(config.RETRY_DELAY * 1000))
                     continue
-                
+
                 # Все попытки исчерпаны
                 try:
                     html_content = await self.page.content()
                 except:
                     html_content = "<html><body>Не удалось получить HTML</body></html>"
-                
+
                 result.products.append(Product(
                     price_text=f"ошибка: {str(e)[:50]}",
                     html_content=html_content
                 ))
                 result.error_message = f"ошибка: {str(e)[:50]}"
+                
+                # Логируем в JSON и записываем в метрики
+                log_error_json(e, brand, article, {"retry_count": retry_count})
+                error_metrics.record_error(
+                    error_type=e.__class__.__name__,
+                    brand=brand,
+                    article=article,
+                    retry_count=retry_count
+                )
                 return result
-        
+
         # Превышено число попыток
         result.products.append(Product(
             price_text="превышено число попыток"
         ))
         result.error_message = "превышено число попыток"
+        error_metrics.record_error(
+            error_type="MaxRetriesExceeded",
+            brand=brand,
+            article=article
+        )
         return result
     
     async def _close_popups(self) -> None:
