@@ -153,10 +153,11 @@ def load_cookies() -> Optional[dict]:
     """
     if not config.COOKIES_FILE.exists():
         logger.warning(
-            f"⚠ Файл {
-                config.COOKIES_FILE} не найден — сессия не будет загружена")
+            f"⚠ Файл {config.COOKIES_FILE} не найден — сессия не будет загружена"
+        )
         logger.info(
-            "  После первого запуска (с ручным прохождением капчи) сессия сохранится автоматически")
+            "  После первого запуска (с ручным прохождением капчи) сессия сохранится автоматически"
+        )
         return None
 
     try:
