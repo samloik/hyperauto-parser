@@ -3,7 +3,7 @@
 """
 from typing import Optional
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from config import config
@@ -13,34 +13,37 @@ from utils import logger, load_cookies, save_cookies
 class BrowserSession:
     """
     Класс для управления сессией браузера Playwright.
-    
+
     Инкапсулирует создание, настройку и закрытие браузера,
     а также управление cookies/сессией.
-    
+
     Attributes:
         playwright: Экземпляр Playwright.
         browser: Экземпляр браузера.
         context: Контекст браузера (вкладки, cookies).
         page: Объект страницы.
     """
-    
+
     def __init__(self):
-        self.playwright = None
+        self.playwright: Optional[Playwright] = None
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
         self._has_session: bool = False
-    
+        self._playwright_context = None
+
     async def start(self) -> None:
         """
         Запускает браузер и создаёт страницу.
-        
+
         Если есть файл cookies, загружает сессию.
         Если нет — даёт пользователю пройти капчу и сохраняет сессию.
         """
         logger.info("Попытка запуска браузера Playwright...")
+
+        self._playwright_context = async_playwright()
+        self.playwright = await self._playwright_context.__aenter__()
         
-        self.playwright = await async_playwright()
         logger.info("Playwright инициализирован")
         
         # Загружаем cookies если есть
@@ -112,9 +115,12 @@ class BrowserSession:
         """Закрывает браузер и очищает ресурсы."""
         if self.browser:
             await self.browser.close()
-        
+
         if self.playwright:
             await self.playwright.stop()
+        
+        if self._playwright_context:
+            await self._playwright_context.__aexit__(None, None, None)
     
     async def __aenter__(self) -> 'BrowserSession':
         """Асинхронный контекстный менеджер (вход)."""
