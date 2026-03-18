@@ -26,9 +26,13 @@ services:
       - TIMEOUT=25000
       - ERROR_THRESHOLD=50.0
       - LOG_LEVEL=INFO
-      # Можно переопределить значения через .env файл (если существует)
+      # Запускаем от root для доступа к смонтированным томам
+      - USER_ID=0
+      - GROUP_ID=0
     env_file:
       - path: .env
         required: false
     stdin_open: true
     tty: true
+    # Переопределяем пользователя на root для доступа к томам
+    user: root
