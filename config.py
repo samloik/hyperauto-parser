@@ -13,10 +13,10 @@ load_dotenv()
 class Config:
     """Класс конфигурации парсера."""
     
-    # Файлы
-    INPUT_FILE: str = os.getenv('INPUT_FILE', 'товары.xlsx')
+    # Файлы (как Path для удобства работы)
+    INPUT_FILE: Path = Path(os.getenv('INPUT_FILE', 'товары.xlsx'))
     OUTPUT_FILE_PREFIX: str = os.getenv('OUTPUT_FILE_PREFIX', 'цены_гиперавто')
-    COOKIES_FILE: str = os.getenv('COOKIES_FILE', 'cookies.json')
+    COOKIES_FILE: Path = Path(os.getenv('COOKIES_FILE', 'cookies.json'))
     
     # Папки
     LOGS_DIR: Path = Path('logs')
