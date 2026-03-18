@@ -20,15 +20,15 @@ services:
       - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
       # Headless режим для Docker
       - DOCKER_ENV=1
-      # Переменные окружения из .env файла (опционально)
-      # Можно раскомментировать и изменить значения
-      # - CITY_SLUG=komsomolsk
-      # - DELAY=5.0
-      # - TIMEOUT=25000
-      # - ERROR_THRESHOLD=50.0
+      # Переменные окружения по умолчанию
+      - CITY_SLUG=komsomolsk
+      - DELAY=5.0
+      - TIMEOUT=25000
+      - ERROR_THRESHOLD=50.0
+      - LOG_LEVEL=INFO
+      # Можно переопределить значения через .env файл (если существует)
     env_file:
-      - .env
+      - path: .env
+        required: false
     stdin_open: true
     tty: true
-    # Автоматическое удаление контейнера после остановки
-    # remove: true  # Закомментировано для сохранения логов
