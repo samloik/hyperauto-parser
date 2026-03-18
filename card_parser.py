@@ -168,6 +168,7 @@ class ProductCardParser:
                     for (const block of deliveryBlocks) {
                         const label = block.querySelector('b.mr-4');
                         if (label && label.textContent.includes('Доставка')) {
+                            // Ищем в sibling элементах
                             let sibling = block.nextElementSibling;
                             while (sibling) {
                                 const next_b = sibling.querySelector('b');
@@ -176,6 +177,22 @@ class ProductCardParser:
                                     break;
                                 }
                                 sibling = sibling.nextElementSibling;
+                            }
+                            if (result.availability) break;
+                            
+                            // Ищем в parent
+                            if (!result.availability) {
+                                const parent = block.parentElement;
+                                if (parent) {
+                                    const all_bs = parent.querySelectorAll('b');
+                                    for (const b of all_bs) {
+                                        const text = b.textContent.trim();
+                                        if (text && !text.includes('Доставка') && !text.includes('При заказе')) {
+                                            result.availability = 'Доставка: ' + text;
+                                            break;
+                                        }
+                                    }
+                                }
                             }
                             if (result.availability) break;
                         }
