@@ -11,6 +11,17 @@ from config import config
 from exceptions import ParserNetworkError
 
 
+# Заголовки для имитации браузера
+HEADERS = {
+    'User-Agent': config.USER_AGENT,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+}
+
+
 async def check_site_health(
     url: str = config.BASE_URL,
     timeout: int = 10,
@@ -18,25 +29,31 @@ async def check_site_health(
 ) -> Tuple[bool, str]:
     """
     Проверяет доступность сайта.
-    
+
     Args:
         url: URL для проверки.
         timeout: Таймаут запроса (секунды).
         max_retries: Максимальное количество попыток.
-        
+
     Returns:
         Кортеж (успех, сообщение).
     """
     last_error: Optional[Exception] = None
-    
+
     for attempt in range(1, max_retries + 1):
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(headers=HEADERS) as session:
                 async with session.get(
                     url,
                     timeout=aiohttp.ClientTimeout(total=timeout),
                     allow_redirects=True
                 ) as response:
+                    # 400 может быть из-за отсутствия заголовков — пробуем ещё раз
+                    if response.status == 400:
+                        logger.warning(f"⚠ Сайт вернул 400, пробуем ещё раз...")
+                        await asyncio.sleep(1)
+                        continue
+                    
                     if response.status == 200:
                         logger.info(f"✓ Сайт {url} доступен (статус: {response.status})")
                         return True, f"OK (статус: {response.status})"
@@ -77,19 +94,19 @@ async def check_search_availability(
 ) -> Tuple[bool, str]:
     """
     Проверяет доступность поиска на сайте.
-    
+
     Args:
         city_slug: Slug города.
         test_query: Тестовый поисковый запрос.
         timeout: Таймаут запроса (секунды).
-        
+
     Returns:
         Кортеж (успех, сообщение).
     """
     search_url = f"{config.BASE_URL}/{city_slug}/search/{test_query}/"
-    
+
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(headers=HEADERS) as session:
             async with session.get(
                 search_url,
                 timeout=aiohttp.ClientTimeout(total=timeout),
@@ -97,7 +114,7 @@ async def check_search_availability(
             ) as response:
                 if response.status == 200:
                     html = await response.text()
-                    
+
                     # Проверяем наличие признаков страницы поиска
                     has_search_results = (
                         'product-list' in html or
@@ -105,7 +122,7 @@ async def check_search_availability(
                         'catalog-item' in html or
                         'Ничего не найдено' in html
                     )
-                    
+
                     if has_search_results:
                         logger.info(f"✓ Поиск доступен (статус: {response.status})")
                         return True, f"OK (статус: {response.status})"
