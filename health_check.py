@@ -51,12 +51,6 @@ async def check_site_health(
                     timeout=aiohttp.ClientTimeout(total=timeout),
                     allow_redirects=True
                 ) as response:
-                    # 400 может быть из-за отсутствия заголовков — пробуем ещё раз
-                    if response.status == 400:
-                        logger.warning("⚠ Сайт вернул 400, пробуем ещё раз...")
-                        await asyncio.sleep(1)
-                        continue
-
                     if response.status == 200:
                         logger.info(f"✓ Сайт {url} доступен (статус: {response.status})")
                         return True, f"OK (статус: {response.status})"

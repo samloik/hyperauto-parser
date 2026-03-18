@@ -68,16 +68,6 @@ async def main_async() -> None:
     # Очищаем папку ошибок
     clear_errors_dir()
 
-    # Health-check сайта перед запуском
-    try:
-        health_ok = await full_health_check()
-        if not health_ok:
-            logger.error("✗ Сайт недоступен. Запуск парсера отменён.")
-            return
-    except Exception as e:
-        logger.warning(f"⚠ Не удалось выполнить health-check: {e}")
-        logger.info("  Продолжаем запуск...")
-
     # Статистика с порогом алерта из конфига
     stats = ParseStats(error_threshold=config.ERROR_THRESHOLD)
     all_results = []
