@@ -11,8 +11,13 @@ import sys
 
 # Настройка логгера
 logger.remove()  # Удаляем стандартный обработчик
+
+# Создаём папку для логов
+logs_dir = Path('logs')
+logs_dir.mkdir(exist_ok=True)
+
 logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
-logger.add("logs-{time:YYYY-MM-DD-HH-mm-ss}.txt", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO", retention=timedelta(days=30))
+logger.add(logs_dir / "logs-{time:YYYY-MM-DD-HH-mm-ss}.txt", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO", retention=timedelta(days=30))
 
 # ================= НАСТРОЙКИ =================
 INPUT_FILE = 'товары.xlsx'
