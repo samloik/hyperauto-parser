@@ -88,16 +88,16 @@ class BrowserSession:
         logger.info("\n>>> Открой https://hyperauto.ru в этой вкладке и пройди капчу!")
         logger.info(">>> После этого нажми Enter в консоли...")
         input()
-        
+
         await self.page.goto(
             config.BASE_URL,
             wait_until="domcontentloaded"
         )
         await self.page.wait_for_timeout(3000)
-        
+
         # Сохраняем сессию
-        await self.context.storage_state(path=config.COOKIES_FILE)
-        logger.info(f"✓ Сессия сохранена в {config.COOKIES_FILE}")
+        storage_state = await self.context.storage_state()
+        save_cookies(storage_state)
         logger.info("  Следующие запуски пройдут без капчи!\n")
     
     async def close(self) -> None:
