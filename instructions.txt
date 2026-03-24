@@ -4372,8 +4372,76 @@ Global/Intl: https://www.alibabacloud.com/help/en/model-studio/coding-plan
 After subscribing, run /auth to configure your Coding Plan API key.
 =====
 
+ознакомься с кодом
 
 
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 247, in <module>
+hyperauto-parser  |     asyncio.run(main_async())
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+hyperauto-parser  |     return loop.run_until_complete(main)
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+hyperauto-parser  |     return future.result()
+hyperauto-parser  |   File "/app/main.py", line 136, in main_async
+hyperauto-parser  |     result_list = await _parse_and_log(idx, row, brand, article)
+hyperauto-parser  |   File "/app/main.py", line 87, in _parse_and_log
+hyperauto-parser  |     html_file, screenshot_file = await save_error_files(
+hyperauto-parser  |   File "/app/utils.py", line 125, in save_error_files
+hyperauto-parser  |     with open(html_filepath, 'w', encoding='utf-8') as f:
+hyperauto-parser  | FileNotFoundError: [Errno 2] No such file or directory: 'Errors/111-Sintec-801894/600240-элементы не найдены.html'
 
 
+возникла вот такая ошибка:
+нужно валидировать имя файла пнри записи от запрещенных в имени файла символов
 
+поправь код
+
+======
+
+hyperauto-parser  | 2026-03-24 04:07:16 | INFO | [0111/1741]               |                      | Sintec/801894/600240      |          ✗ |   12.8 сек |                      |
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 247, in <module>
+hyperauto-parser  |     asyncio.run(main_async())
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+hyperauto-parser  |     return loop.run_until_complete(main)
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+hyperauto-parser  |     return future.result()
+hyperauto-parser  |   File "/app/main.py", line 136, in main_async
+hyperauto-parser  |     result_list = await _parse_and_log(idx, row, brand, article)
+hyperauto-parser  |   File "/app/main.py", line 87, in _parse_and_log
+hyperauto-parser  |     html_file, screenshot_file = await save_error_files(
+hyperauto-parser  |   File "/app/utils.py", line 125, in save_error_files
+hyperauto-parser  |     with open(html_filepath, 'w', encoding='utf-8') as f:
+hyperauto-parser  | FileNotFoundError: [Errno 2] No such file or directory: 'Errors/111-Sintec-801894/600240-элементы не найдены.html'
+hyperauto-parser exited with code 1
+
+=====
+
+hyperauto-parser  | 2026-03-24 04:26:27 | INFO | Колонки в порядке → запускаем браузер...
+hyperauto-parser  | 2026-03-24 04:26:27 | INFO | Попытка запуска браузера Playwright...
+hyperauto-parser  | 2026-03-24 04:26:28 | INFO | Playwright инициализирован
+hyperauto-parser  | 2026-03-24 04:26:28 | INFO | ✓ Загружаем сессию из cookies.json
+hyperauto-parser  | 2026-03-24 04:26:28 | INFO | Браузер запущен
+hyperauto-parser  | 2026-03-24 04:26:42 | INFO | [0001/1633]               |                      | Sintec/801941             |          ✗ |   13.6 сек |                      |
+hyperauto-parser  | 2026-03-24 04:26:44 | INFO |   → Сохранено: 1-Sintec-801941-элементы не найдены.html + 1-Sintec-801941-элементы не найдены.jpg
+hyperauto-parser  | 2026-03-24 04:27:01 | INFO | [0002/1633]               |                      | Sintec/801940             |          ✗ |   11.8 сек |                      |
+hyperauto-parser  | 2026-03-24 04:27:03 | INFO |   → Сохранено: 2-Sintec-801940-элементы не найдены.html + 2-Sintec-801940-элементы не найдены.jpg
+hyperauto-parser  | 2026-03-24 04:27:20 | INFO | [0003/1633]               |                      | Sintec/801894/600240      |          ✗ |   11.9 сек |                      |
+hyperauto-parser  | Traceback (most recent call last):
+hyperauto-parser  |   File "/app/main.py", line 247, in <module>
+hyperauto-parser  |     asyncio.run(main_async())
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+hyperauto-parser  |     return loop.run_until_complete(main)
+hyperauto-parser  |   File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+hyperauto-parser  |     return future.result()
+hyperauto-parser  |   File "/app/main.py", line 136, in main_async
+hyperauto-parser  |     result_list = await _parse_and_log(idx, row, brand, article)
+hyperauto-parser  |   File "/app/main.py", line 87, in _parse_and_log
+hyperauto-parser  |     html_file, screenshot_file = await save_error_files(
+hyperauto-parser  |   File "/app/utils.py", line 125, in save_error_files
+hyperauto-parser  |     with open(html_filepath, 'w', encoding='utf-8') as f:
+hyperauto-parser  | FileNotFoundError: [Errno 2] No such file or directory: 'Errors/3-Sintec-801894/600240-элементы не найдены.html'
+hyperauto-parser exited with code 1
+
+
+=====
