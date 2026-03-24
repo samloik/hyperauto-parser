@@ -7,6 +7,7 @@
 import asyncio
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from time import perf_counter
 
 from loguru import logger
@@ -67,6 +68,9 @@ async def main_async() -> None:
 
     # Очищаем папку ошибок
     clear_errors_dir()
+    
+    # Создаём папку для выходных файлов
+    Path('output').mkdir(exist_ok=True)
 
     # Статистика с порогом алерта из конфига
     stats = ParseStats(error_threshold=config.ERROR_THRESHOLD)
@@ -157,7 +161,7 @@ async def main_async() -> None:
 
     # Сохраняем в Excel
     timestamp = datetime.now().strftime('%Y%m%d_%H%M')
-    output_file = f"{config.OUTPUT_FILE_PREFIX}_{timestamp}.xlsx"
+    output_file = f"output/{config.OUTPUT_FILE_PREFIX}_{timestamp}.xlsx"
     df_results.to_excel(output_file, index=False)
 
     # Настраиваем ширину колонок и закрепляем шапку

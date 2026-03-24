@@ -13,7 +13,7 @@ services:
       - ./logs:/app/logs
       # Монтируем папку для ошибок
       - ./Errors:/app/Errors
-      # Монтируем выходной файл (опционально)
+      # Монтируем выходные файлы Excel
       - ./output:/app/output
     environment:
       # Путь к браузерам Playwright
