@@ -80,10 +80,24 @@ def sanitize_filename(name: str, max_length: int = 50) -> str:
     Returns:
         Безопасная строка для имени файла.
     """
-    # Заменяем проблемные символы
-    for char in [':', '/', '\\', '<', '>', '"', '|', '?', '*']:
+    # Заменяем все проблемные символы на подчёркивание
+    # Windows: < > : " / \ | ? *
+    # Unix: /
+    # Также убираем управляющие символы (0x00-0x1F)
+    forbidden_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+    for char in forbidden_chars:
         name = name.replace(char, '_')
-
+    
+    # Удаляем управляющие символы
+    name = ''.join(char for char in name if ord(char) >= 32)
+    
+    # Убираем пробелы и точки в начале/конце (проблемно в Windows)
+    name = name.strip(' .')
+    
+    # Если имя пустое после очистки, используем дефолтное значение
+    if not name:
+        name = 'error'
+    
     # Обрезаем до максимальной длины
     return name[:max_length]
 

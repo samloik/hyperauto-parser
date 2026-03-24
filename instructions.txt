@@ -4275,3 +4275,105 @@ hyperauto-parser exited with code 1
 
 
 ====
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+
+a) Дублирование обработки ошибок
+handle_parse_errors декоратор и retry_async оба ловят исключения
+Логика пересекается, может приводить к двойному логированию
+b) error_metrics не потокобезопасен
+При параллельном запуске будут гонки данных
+Решение: добавить asyncio.Lock
+
+=====
+
+
+очень аккуатно выполни эти действия и проверь на ошибки:
+
+
+4. Производительность
+
+a) Нет параллелизма
+Товары парсятся последовательно, хотя можно использовать asyncio.Semaphore для параллельной обработки 3-5 товаров одновременно
+b) Избыточные запросы
+_extract_brand_article() и _extract_product_name() делают отдельные запросы к DOM, хотя можно извлечь всё за один проход
+c) random.random() для задержки
+delay_ms = 2000 + int(config.DELAY * 1000 * 0.3 * random.random()) — странная формула
+Лучше: random.uniform(2000, 2500)
+
+====
+
+alex@alex-pc:~/hyperauto-parser$ docker compose up
+WARN[0000] No services to build
+[+] up 1/1
+ ✔ Container hyperauto-parser Recreated                                                                                                                                                     0.3s
+Attaching to hyperauto-parser
+hyperauto-parser  | 2026-03-18 18:04:20 | INFO | === Запуск парсера Гиперавто (Playwright) ===
+hyperauto-parser  | 2026-03-18 18:04:20 | INFO | Текущая папка: /app
+hyperauto-parser  | 2026-03-18 18:04:20 | INFO | Ищем файл: товары.xlsx
+hyperauto-parser  | 2026-03-18 18:04:20 | INFO | Файл найден → читаем...
+hyperauto-parser  | 2026-03-18 18:04:20 | INFO | Прочитано строк: 2
+hyperauto-parser  | 2026-03-18 18:04:20 | INFO |   Бренд Артикул
+hyperauto-parser  | 0   CTR  CB0234
+hyperauto-parser  | 1   CTR  CB0177
+hyperauto-parser  | 2026-03-18 18:04:20 | INFO | Колонки в порядке → запускаем браузер...
+hyperauto-parser  | 2026-03-18 18:04:20 | INFO | Попытка запуска браузера Playwright...
+hyperauto-parser  | 2026-03-18 18:04:21 | INFO | Playwright инициализирован
+hyperauto-parser  | 2026-03-18 18:04:21 | INFO | ✓ Загружаем сессию из cookies.json
+hyperauto-parser  | 2026-03-18 18:04:22 | INFO | Браузер запущен
+hyperauto-parser  | 2026-03-18 18:04:38 | INFO | [1/2]          CTR        | CB0234 (CBKK-8)      | CTR/CB0234                |   1,199.00 |   15.3 сек |                      |
+hyperauto-parser  | 2026-03-18 18:04:55 | INFO | [2/2][1]       CTR        | CB0177 (CBKH-12)     | CTR/CB0177                |   1,299.00 |   12.9 сек |                      |
+hyperauto-parser  | 2026-03-18 18:04:55 | INFO | [2/2][2]       CTR        | CB0177 (CBM-9)       | CTR/CB0177                |   1,099.00 |   12.9 сек |                      |
+hyperauto-parser  | 2026-03-18 18:05:01 | INFO | 💾 Сохранение обновлённой сессии cookies...
+hyperauto-parser  | 2026-03-18 18:05:01 | INFO | ✓ Сессия сохранена в cookies.json
+hyperauto-parser  | 2026-03-18 18:05:01 | INFO |
+hyperauto-parser  | Сохранено → цены_гиперавто_20260318_1805.xlsx
+hyperauto-parser  | 2026-03-18 18:05:01 | INFO |
+hyperauto-parser  | ⏱ Всего: 38 сек | Среднее на позицию: 14 сек
+hyperauto-parser  | 2026-03-18 18:05:01 | INFO | ✓ Успешно: 2/2 (100.0%)
+hyperauto-parser  | 2026-03-18 18:05:01 | INFO | 📊 Метрики ошибок: 0/2 (0.0%)
+
+пропали данные из колонки наличие - доставка 
+
+проверь что не так сделал с кодом
+
+=====
+
+hyperauto-parser  | 2026-03-18 18:09:59 | INFO | ✓ Загружаем сессию из cookies.json
+hyperauto-parser  | 2026-03-18 18:10:00 | INFO | Браузер запущен
+hyperauto-parser  | 2026-03-18 18:10:15 | INFO | [1/2]          CTR        | CB0234 (CBKK-8)      | CTR/CB0234                |   1,199.00 |   14.9 сек | Доставка: с
+hyperauto-parser  |          |
+hyperauto-parser  | 2026-03-18 18:10:33 | INFO | [2/2][1]       CTR        | CB0177 (CBKH-12)     | CTR/CB0177                |   1,299.00 |   12.8 сек | Доставка: с
+hyperauto-parser  |          |
+hyperauto-parser  | 2026-03-18 18:10:33 | INFO | [2/2][2]       CTR        | CB0177 (CBM-9)       | CTR/CB0177                |   1,099.00 |   12.8 сек | Доставка: с
+hyperauto-parser  |          |
+
+
+не работает поиск наличие - доставка
+
+откати два коммита для проверки
+
+======
+
+
+не надо ничего выдумывать  - просто откати два коммита последних из git
+
+продолжим завтра
+
+------
+
+Internal error: Qwen OAuth quota exceeded: Your free daily quota has been reached.
+
+To continue using Qwen Code without waiting, upgrade to the Alibaba Cloud Coding Plan:
+China: https://help.aliyun.com/zh/model-studio/coding-plan
+Global/Intl: https://www.alibabacloud.com/help/en/model-studio/coding-plan
+
+After subscribing, run /auth to configure your Coding Plan API key.
+=====
+
+
+
+
+
+
