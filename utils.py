@@ -128,20 +128,25 @@ async def save_error_files(
     if not error_product:
         return "", None
 
-    # Формируем имя файла
+    # Формируем имя файла (санируем все части для безопасности)
+    brand = sanitize_filename(result.brand, max_length=30)
+    article = sanitize_filename(result.article, max_length=30)
     error_name = sanitize_filename(error_product.price_text)
     html_filename = (
-        f"{position_num}-{result.brand}-{result.article}-{error_name}.html"
+        f"{position_num}-{brand}-{article}-{error_name}.html"
     )
     html_filepath = config.ERRORS_DIR / html_filename
+
+    # Убеждаемся, что директория существует
+    config.ERRORS_DIR.mkdir(exist_ok=True)
 
     # Сохраняем HTML
     with open(html_filepath, 'w', encoding='utf-8') as f:
         f.write(error_product.html_content)
 
-    # Сохраняем скриншот
+    # Сохраняем скриншот (используем те же санированные значения)
     screenshot_filename = (
-        f"{position_num}-{result.brand}-{result.article}-{error_name}.jpg"
+        f"{position_num}-{brand}-{article}-{error_name}.jpg"
     )
     screenshot_path = config.ERRORS_DIR / screenshot_filename
 
